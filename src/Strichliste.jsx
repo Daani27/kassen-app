@@ -1,0 +1,195 @@
+import { useEffect, useState } from 'react'
+import { supabase } from './supabaseClient'
+
+export default function Strichliste({ session, onUpdate, isAdmin }) {
+  const [products, setProducts] = useState([])
+  const [profiles, setProfiles] = useState([])
+  const [targetUserId, setTargetUserId] = useState(session.user.id)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchProducts()
+    if (isAdmin) fetchProfiles()
+  }, [isAdmin])
+
+  async function fetchProducts() {
+    const { data, error } = await supabase.from('products').select('*').eq('is_active', true).order('name')
+    if (!error) setProducts(data)
+    setLoading(false)
+  }
+
+  async function fetchProfiles() {
+    const { data } = await supabase.from('profiles').select('id, username').order('username')
+    if (data) setProfiles(data)
+  }
+
+  async function buyProduct(product) {
+    const rawPrice = parseFloat(product.price);
+    if (isNaN(rawPrice)) {
+      alert("Fehler: Ungültiger Preis.");
+      return;
+    }
+
+    const finalAmount = Math.abs(rawPrice) * -1;
+    const isForMe = targetUserId === session.user.id;
+    const targetProfile = profiles.find(p => p.id === targetUserId);
+    const targetName = !isForMe && targetProfile ? targetProfile.username : 'dich selbst';
+
+    const confirmBuy = window.confirm(`${product.name} für ${targetName} (${Math.abs(finalAmount).toFixed(2)}€) buchen?`);
+    if (!confirmBuy) return;
+
+    try {
+      const { error } = await supabase.from('transactions').insert([
+        { 
+          user_id: targetUserId, 
+          amount: finalAmount, 
+          description: product.name,
+          category: 'snack' 
+        }
+      ]);
+
+      if (error) throw error;
+      if (onUpdate) onUpdate();
+    } catch (e) {
+      alert('Fehler: ' + e.message);
+    }
+  }
+
+  return (
+    <div style={containerStyle}>
+      <header style={{ marginBottom: '20px' }}>
+        <h3 style={titleStyle}>🥤 Snacks und Getränke</h3>
+        <p style={subtitleStyle}>Einfach anklicken zum Buchen</p>
+      </header>
+
+      {isAdmin && (
+        <div style={adminBoxStyle}>
+          <label style={adminLabelStyle}>🎯 Buchung für:</label>
+          <select 
+            value={targetUserId} 
+            onChange={(e) => setTargetUserId(e.target.value)}
+            style={selectStyle}
+          >
+            <option value={session.user.id}>-- Mich selbst --</option>
+            {profiles.filter(p => p.id !== session.user.id).map(p => (
+              <option key={p.id} value={p.id}>{p.username}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      <div style={gridStyle}>
+        {loading ? (
+          <div style={loadingStyle}>Produkte werden geladen...</div>
+        ) : (
+          products.map(p => {
+            const isExternal = isAdmin && targetUserId !== session.user.id;
+            return (
+              <button 
+                key={p.id} 
+                onClick={() => buyProduct(p)}
+                style={{
+                  ...tileStyle,
+                  backgroundColor: isExternal ? '#eff6ff' : '#fff',
+                  borderColor: isExternal ? '#3b82f6' : '#f1f5f9'
+                }}
+              >
+                <span style={emojiStyle}>{getEmoji(p.name)}</span>
+                <span style={productNameStyle}>{p.name}</span>
+                <span style={{
+                  ...priceBadgeStyle,
+                  backgroundColor: isExternal ? '#3b82f6' : '#111827',
+                  color: '#fff'
+                }}>
+                  {Math.abs(p.price).toFixed(2)} €
+                </span>
+              </button>
+            )
+          })
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Hilfsfunktion für Icons (optional, wertet es aber extrem auf)
+function getEmoji(name) {
+  const n = name.toLowerCase();
+  if (n.includes('wasser') || n.includes('sprudel')) return '💧';
+  if (n.includes('cola') || n.includes('spezi') || n.includes('limo')) return '🥤';
+  if (n.includes('bier') || n.includes('radler')) return '🍺';
+  if (n.includes('kaffee')) return '☕';
+  if (n.includes('eis') || n.includes('stiel') || n.includes('waffel')) return '🍦';
+  if (n.includes('schoko') || n.includes('riegel') || n.includes('snack')) return '🍫';
+  if (n.includes('apfel') || n.includes('saft')) return '🧃';
+  return '📦';
+}
+
+// STYLES
+const containerStyle = { 
+  marginTop: '20px', 
+  padding: '24px', 
+  backgroundColor: '#fff', 
+  borderRadius: '24px', 
+  border: '1px solid #f1f5f9',
+  boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)'
+}
+
+const titleStyle = { margin: 0, fontSize: '1.1rem', fontWeight: '800', color: '#111827' }
+const subtitleStyle = { margin: 0, fontSize: '0.75rem', color: '#94a3b8' }
+
+const adminBoxStyle = { 
+  marginBottom: '20px', 
+  padding: '12px', 
+  backgroundColor: '#f8fafc', 
+  borderRadius: '16px',
+  border: '1px solid #e2e8f0'
+}
+
+const adminLabelStyle = { 
+  fontSize: '0.65rem', 
+  fontWeight: '800', 
+  color: '#64748b', 
+  textTransform: 'uppercase', 
+  display: 'block', 
+  marginBottom: '6px' 
+}
+
+const selectStyle = { 
+  width: '100%', 
+  padding: '10px', 
+  borderRadius: '10px', 
+  border: '1px solid #cbd5e1', 
+  backgroundColor: '#fff',
+  fontSize: '0.9rem',
+  fontWeight: '600'
+}
+
+const gridStyle = { 
+  display: 'grid', 
+  gridTemplateColumns: 'repeat(2, 1fr)', 
+  gap: '12px' 
+}
+
+const tileStyle = {
+  padding: '20px 10px',
+  borderRadius: '20px',
+  border: '2px solid',
+  cursor: 'pointer',
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: '8px',
+  transition: 'all 0.1s active',
+}
+
+const emojiStyle = { fontSize: '1.8rem' }
+const productNameStyle = { fontSize: '0.85rem', fontWeight: '700', color: '#1e293b', textAlign: 'center' }
+const priceBadgeStyle = { 
+  padding: '4px 10px', 
+  borderRadius: '8px', 
+  fontSize: '0.75rem', 
+  fontWeight: '800' 
+}
+
+const loadingStyle = { gridColumn: 'span 2', textAlign: 'center', padding: '40px', color: '#94a3b8' }

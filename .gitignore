@@ -72,8 +72,10 @@ web_modules/
 # Yarn Integrity file
 .yarn-integrity
 
-# dotenv environment variable files
+# dotenv environment variable files (niemals .env mit echten Keys committen)
 .env
+.env.*
+!.env.example
 .env.development.local
 .env.test.local
 .env.production.local
@@ -128,3 +130,21 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# --- WA I Kasse / GitHub ---
+# Build (Vite)
+dist/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE / Editor
+.idea/
+*.swp
+*.swo
+*~
+
+# Supabase CLI (lokal)
+supabase/.temp
+supabase/.branches

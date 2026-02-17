@@ -1,2 +1,37 @@
-main {
+:root {
+  --bg-dark: #0f172a;       /* Tiefes Dunkelblau/Schwarz */
+  --card-bg: #1e293b;       /* Etwas helleres Grau-Blau für Karten */
+  --fire-red: #e11d48;      /* Feuerwehr-Rot */
+  --text-main: #f8fafc;     /* Fast Weiß */
+  --text-muted: #94a3b8;    /* Grau für Untertitel */
+  --success: #10b981;       /* Smaragdgrün */
+}
+
+body {
+  margin: 0;
+  background-color: var(--bg-dark);
+  color: var(--text-main);
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+/* Karten-Styling für Dashboard-Segmente */
+.card {
+  background-color: var(--card-bg);
+  border: 1px solid #334155;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+}
+
+/* Eingabefelder im Dark Mode */
+input {
+  background-color: #0f172a !important;
+  color: white !important;
+  border: 1px solid #334155 !important;
+  padding: 10px;
+  border-radius: 8px;
+}
+
+button {
+  cursor: pointer;
 }
