@@ -5,6 +5,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const [isRegEnabled, setIsRegEnabled] = useState(true)
   const [showMagicLink, setShowMagicLink] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
   const emailInputRef = useRef(null)
   const passwordInputRef = useRef(null)
   const magicEmailInputRef = useRef(null)
@@ -89,14 +90,23 @@ export default function Login() {
               />
             </div>
 
-            <div style={inputWrapperStyle}>
+            <div style={passwordWrapperStyle}>
               <input
                 ref={passwordInputRef}
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 placeholder="Passwort"
                 autoComplete="current-password"
-                style={inputStyle}
+                style={{ ...inputStyle, paddingRight: '48px' }}
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(p => !p)}
+                style={passwordToggleBtnStyle}
+                title={showPassword ? 'Passwort verbergen' : 'Passwort anzeigen'}
+                aria-label={showPassword ? 'Passwort verbergen' : 'Passwort anzeigen'}
+              >
+                {showPassword ? '🙈' : '👁️'}
+              </button>
             </div>
 
             <button 
@@ -177,7 +187,9 @@ const iconContainerStyle = { width: '70px', height: '70px', backgroundColor: '#f
 const titleStyle = { margin: '0', color: '#0f172a', fontSize: '1.5rem', fontWeight: '800' }
 const subtitleStyle = { color: '#64748b', fontSize: '0.9rem', margin: '4px 0 0 0', fontWeight: '500' }
 const inputWrapperStyle = { position: 'relative', width: '100%' }
+const passwordWrapperStyle = { position: 'relative', width: '100%' }
 const inputStyle = { width: '100%', padding: '14px 16px', borderRadius: '14px', border: '1px solid #e2e8f0', boxSizing: 'border-box', fontSize: '1rem', backgroundColor: '#f8fafc', outline: 'none', transition: 'border-color 0.2s' }
+const passwordToggleBtnStyle = { position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', padding: '6px', cursor: 'pointer', fontSize: '1.2rem', lineHeight: 1, opacity: 0.7 }
 const btnStyle = { width: '100%', padding: '14px', borderRadius: '14px', border: 'none', fontSize: '1rem', fontWeight: '700', cursor: 'pointer' }
 const signUpBtnStyle = { ...btnStyle, backgroundColor: 'transparent', color: '#64748b', fontSize: '0.85rem', fontWeight: '600', marginTop: '5px' }
 const lockedBadgeStyle = { marginTop: '20px', padding: '10px', borderRadius: '12px', backgroundColor: '#fff1f2', color: '#e11d48', fontSize: '0.8rem', fontWeight: '700' }

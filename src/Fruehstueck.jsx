@@ -2,6 +2,13 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from './supabaseClient'
 
 const SAVE_DEBOUNCE_MS = 500
+const SAVE_DEBOUNCE_MS_IOS = 900
+
+function isIos() {
+  if (typeof navigator === 'undefined') return false
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+}
 
 export default function Fruehstueck({ session, isAdmin, onUpdate }) {
   const [counts, setCounts] = useState({ normal: 0, koerner: 0 })
@@ -10,6 +17,7 @@ export default function Fruehstueck({ session, isAdmin, onUpdate }) {
   const [saving, setSaving] = useState(false)
   const saveTimeoutRef = useRef(null)
   const countsRef = useRef({ normal: 0, koerner: 0 })
+  const savingRef = useRef(false)
   countsRef.current = counts
 
   // States für Admin-Funktion
@@ -38,8 +46,9 @@ export default function Fruehstueck({ session, isAdmin, onUpdate }) {
 
   function checkLockStatus() {
     const now = new Date()
-    // Sperre ab 10:00 Uhr
-    setIsLocked(now.getHours() >= 10) 
+    // Sperre ab 7:50 Uhr
+    const minutesSinceMidnight = now.getHours() * 60 + now.getMinutes()
+    setIsLocked(minutesSinceMidnight >= 7 * 60 + 50) 
   }
 
   async function fetchProfiles() {
@@ -71,8 +80,10 @@ export default function Fruehstueck({ session, isAdmin, onUpdate }) {
   }
 
   async function persistOrder(toSave) {
-    if (!toSave || saving) return
+    if (!toSave || savingRef.current) return
+    savingRef.current = true
     setSaving(true)
+    const savedSnapshot = { ...toSave }
     try {
       const today = new Date().toISOString().split('T')[0]
       const totalAmount = (toSave.normal * PREIS_NORMAL) + (toSave.koerner * PREIS_KOERNER)
@@ -113,21 +124,33 @@ export default function Fruehstueck({ session, isAdmin, onUpdate }) {
       fetchOrderForUser(targetUserId)
       alert('Fehler beim Speichern: ' + (e.message || e))
     } finally {
+      savingRef.current = false
       setSaving(false)
+      const current = countsRef.current
+      const changed = current.normal !== savedSnapshot.normal || current.koerner !== savedSnapshot.koerner
+      if (changed) {
+        saveTimeoutRef.current = setTimeout(() => {
+          saveTimeoutRef.current = null
+          persistOrder({ ...countsRef.current })
+        }, 50)
+      }
     }
   }
 
   function updateOrder(type, delta) {
     if (isLocked && !isAdmin) return
+    if (savingRef.current) return
 
     const newCounts = { ...counts, [type]: Math.max(0, (counts[type] || 0) + delta) }
     setCounts(newCounts)
 
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
+    const debounceMs = isIos() ? SAVE_DEBOUNCE_MS_IOS : SAVE_DEBOUNCE_MS
     saveTimeoutRef.current = setTimeout(() => {
       saveTimeoutRef.current = null
-      persistOrder(countsRef.current)
-    }, SAVE_DEBOUNCE_MS)
+      const toSave = { ...countsRef.current }
+      persistOrder(toSave)
+    }, debounceMs)
   }
 
   useEffect(() => {
@@ -172,7 +195,7 @@ export default function Fruehstueck({ session, isAdmin, onUpdate }) {
             backgroundColor: isLocked ? '#fee2e2' : '#dcfce7',
             color: isLocked ? '#ef4444' : '#10b981',
           }}>
-            {isLocked ? '🔒 STOPP' : '🔓 BIS 10:00'}
+            {isLocked ? '🔒 STOPP' : '🔓 BIS 7:50'}
           </div>
         </div>
 

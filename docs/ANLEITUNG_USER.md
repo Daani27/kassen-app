@@ -34,7 +34,7 @@ Nach dem Login siehst du:
 ### Frühstück (Brötchen)
 - **Normal** und **Körner**: Mit **+** / **−** bestellst du Brötchen für **heute**.
 - Bestellung wird automatisch gespeichert.
-- **Hinweis:** Bestellungen sind nur bis **10:00 Uhr** möglich (danach Sperre).
+- **Hinweis:** Bestellungen sind nur bis **7:50 Uhr** möglich (danach Sperre).
 
 ### Mahlzeiten (Abendessen)
 - Wenn eine **offene Mahlzeit** existiert, siehst du den Titel und kannst:
@@ -69,7 +69,7 @@ Nach dem Login siehst du:
 | Bereich        | Aktion für dich |
 |----------------|------------------|
 | **Strichliste** | Produkte tippen → Buchung für dich |
-| **Frühstück**   | Brötchen +/− bis 10 Uhr |
+| **Frühstück**   | Brötchen +/− bis 7:50 Uhr |
 | **Mahlzeiten**  | „Ich esse mit!“ bei offener Liste |
 | **Einstellungen** | Push, Name, Passwort, Abmelden |
 | **🔄**          | Daten neu laden + App-Update prüfen |

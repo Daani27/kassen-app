@@ -4,6 +4,17 @@ Alle nennenswerten Änderungen werden hier dokumentiert.
 
 ---
 
+## [2.1.9]
+
+### Login
+- **Passwort anzeigen/verbergen:** Button (👁️/🙈) im Passwortfeld – Klick schaltet die Sichtbarkeit der Eingabe um.
+
+### Frühstück
+- **Zeitfenster:** Sperre für Brötchenbestellungen jetzt ab **7:50 Uhr** (zuvor 10:00 Uhr). Anzeige „BIS 7:50“.
+- **Race Condition (iOS):** Speichern beim schnellen Tippen auf dem iPhone robuster: synchrone Lock per Ref (`savingRef`), längerer Debounce auf iOS (900 ms), Nachspeichern falls sich der Stand während des Speicherns geändert hat. Anleitung (ANLEITUNG_USER.md) auf 7:50 aktualisiert.
+
+---
+
 ## [2.1.8] – 2026-02-17
 
 ### Push (iOS/Safari)
