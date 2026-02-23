@@ -336,7 +336,7 @@ export default function FinancePanel({ session, isAdmin, onUpdate }) {
               placeholder="Betrag 0,00"
               value={personExpenseAmount}
               onChange={e => setPersonExpenseAmount(e.target.value)}
-              style={inputStyleWithIcon}
+              style={{ ...themeInput, paddingLeft: 36 }}
             />
           </div>
           <input
@@ -344,7 +344,7 @@ export default function FinancePanel({ session, isAdmin, onUpdate }) {
             placeholder="Beschreibung (z. B. Zigaretten mitgebracht)"
             value={personExpenseDesc}
             onChange={e => setPersonExpenseDesc(e.target.value)}
-            style={inputStyle}
+            style={themeInput}
           />
           <button
             onClick={addExpenseForPerson}
