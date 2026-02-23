@@ -102,6 +102,10 @@ if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
       }
       if (typeof window !== 'undefined') window.__pwaCheckUpdate = checkWaiting
       reg.update()
+      if (reg.waiting) showUpdateBanner(reg)
+      // Beim Start erneut prüfen, sobald der Browser ggf. neuen SW geladen hat
+      setTimeout(checkWaiting, 3000)
+      setTimeout(checkWaiting, 8000)
 
       reg.addEventListener('updatefound', () => {
         const newWorker = reg.installing
@@ -110,8 +114,6 @@ if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
           if (newWorker.state === 'installed' && reg.waiting) showUpdateBanner(reg)
         })
       })
-
-      if (reg.waiting) showUpdateBanner(reg)
 
       let hiddenAt = 0
       document.addEventListener('visibilitychange', () => {

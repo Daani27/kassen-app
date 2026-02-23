@@ -8,7 +8,7 @@ import GastPage from './GastPage'
 import PwaInstallBanner from './PwaInstallBanner'
 import ErrorBoundary from './ErrorBoundary'
 
-const APP_VERSION = import.meta.env.PACKAGE_VERSION || '3.0.3'
+const APP_VERSION = import.meta.env.PACKAGE_VERSION || '3.0.4'
 
 function App() {
   const [session, setSession] = useState(null)
@@ -33,6 +33,12 @@ function App() {
     }
     init()
   }, [])
+
+  // Beim App-Start (nach Laden) auf PWA-Update prüfen
+  useEffect(() => {
+    if (loading) return
+    if (typeof window.__pwaCheckUpdate === 'function') window.__pwaCheckUpdate()
+  }, [loading])
 
   useEffect(() => {
     document.title = branding.app_name ? `${branding.app_name}` : 'Kasse'

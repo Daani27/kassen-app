@@ -131,22 +131,27 @@ export default function Dashboard({ session, onLogout }) {
     }
   }
 
+  function getTodayLocal() {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  }
+
   async function fetchMealInfo() {
     try {
-      const today = new Date().toISOString().split('T')[0]
+      const todayLocal = getTodayLocal()
       const meal = await apiGetActiveMeal()
-      const mealDate = meal?.meal_date ? String(meal.meal_date).slice(0, 10) : today
-
+      const mealDateStr = meal?.meal_date ? String(meal.meal_date).slice(0, 10) : todayLocal
+      // Abendessen-Ausgaben mit lokalem „heute“ abfragen, damit sie mit FinancePanel (getTodayLocal) matchen
+      const expenseDate = (meal?.status === 'open') ? todayLocal : mealDateStr
       if (meal) {
         const count = (meal.meal_participants || []).length
-        const expenseData = await apiGetGlobalExpenses({ category: 'abendessen', shift_date: mealDate })
+        const expenseData = await apiGetGlobalExpenses({ category: 'abendessen', shift_date: expenseDate })
         const autoSum = (expenseData || []).reduce((acc, curr) => acc + Math.abs(Number(curr.amount)), 0) || 0
-        // Bei offener Mahlzeit immer Ausgaben-Summe für Preis pp (bleibt aktuell bei neuen Einträgen)
         const currentCosts = (meal.status === 'open') ? autoSum : ((meal.total_cost && meal.total_cost > 0) ? meal.total_cost : autoSum)
         const rawPerPerson = count > 0 ? currentCosts / count : 0
         let perPerson = count > 0 ? Math.ceil(rawPerPerson * 2) / 2 : 0
         if (Math.round(rawPerPerson * 100) % 50 === 0) perPerson += 0.5
-        setMealInfo({ count, price: perPerson, date: mealDate })
+        setMealInfo({ count, price: perPerson, date: mealDateStr })
       } else {
         setMealInfo({ count: 0, price: 0, date: null })
       }

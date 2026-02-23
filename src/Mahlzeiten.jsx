@@ -57,6 +57,11 @@ export default function Mahlzeiten({ session, onUpdate, refreshKey }) {
     } catch (e) { console.error(e) }
   }
 
+  function getTodayLocal() {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  }
+
   async function fetchActiveMeal() {
     setLoading(true)
     try {
@@ -65,10 +70,10 @@ export default function Mahlzeiten({ session, onUpdate, refreshKey }) {
         setActiveMeal(meal)
         setIsJoined((meal.meal_participants || []).some(p => p.user_id === session.user.id))
         setGuestEntries(meal.meal_guest_entries || [])
-        const mealDate = String(meal.meal_date).slice(0, 10)
-        const expenses = await apiGetGlobalExpenses({ category: 'abendessen', shift_date: mealDate })
+        const mealDateStr = String(meal.meal_date).slice(0, 10)
+        const expenseDate = meal.status === 'open' ? getTodayLocal() : mealDateStr
+        const expenses = await apiGetGlobalExpenses({ category: 'abendessen', shift_date: expenseDate })
         const sum = (expenses || []).reduce((acc, curr) => acc + Math.abs(Number(curr.amount)), 0)
-        // Bei offener Mahlzeit immer Summe der Abendessen-Ausgaben als Kostenbasis (wird bei neuer Ausgabe aktuell)
         if (meal.status === 'open') {
           setTotalCost(sum.toString())
         } else if (meal.total_cost != null && meal.total_cost > 0) {
