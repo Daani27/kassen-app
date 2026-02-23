@@ -151,8 +151,13 @@ export async function sendPushToAll(title, body, _session) {
 }
 
 function urlBase64ToUint8Array(base64String) {
-  const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
+  if (!base64String || typeof base64String !== 'string') {
+    throw new Error('VAPID-Public-Key fehlt oder ist ungültig')
+  }
+  // Nur Zeichen aus URL-safe/Standard-Base64 behalten (vermeidet "invalid character" bei atob)
+  const base64Clean = base64String.replace(/\s/g, '').replace(/[^A-Za-z0-9_\-+/]/g, '')
+  const padding = '='.repeat((4 - (base64Clean.length % 4)) % 4)
+  const base64 = (base64Clean + padding).replace(/-/g, '+').replace(/_/g, '/')
   const rawData = atob(base64)
   const output = new Uint8Array(rawData.length)
   for (let i = 0; i < rawData.length; ++i) output[i] = rawData.charCodeAt(i)
