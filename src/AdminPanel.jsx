@@ -10,6 +10,9 @@ import {
   apiCreateProfile,
   apiGetFruehstueckSummary,
   apiUpdateBranding,
+  apiGetProducts,
+  apiCreateProduct,
+  apiUpdateProduct,
 } from './api'
 import { useBranding } from './BrandingContext'
 import { sendPushToAll } from './pushNotifications'
@@ -34,11 +37,29 @@ export default function AdminPanel({ session }) {
   })
   const [brandingSaving, setBrandingSaving] = useState(false)
 
+  const [products, setProducts] = useState([])
+  const [productName, setProductName] = useState('')
+  const [productPrice, setProductPrice] = useState('')
+  const [productSaving, setProductSaving] = useState(false)
+  const [editingProductId, setEditingProductId] = useState(null)
+  const [editProductName, setEditProductName] = useState('')
+  const [editProductPrice, setEditProductPrice] = useState('')
+
   useEffect(() => {
     fetchData()
     fetchSettings()
     fetchFruehstueckSummary()
+    fetchProducts()
   }, [])
+
+  async function fetchProducts() {
+    try {
+      const list = await apiGetProducts(true)
+      setProducts(Array.isArray(list) ? list : [])
+    } catch (_) {
+      setProducts([])
+    }
+  }
 
   useEffect(() => {
     if (session) fetchOpenMeal()
@@ -163,6 +184,72 @@ export default function AdminPanel({ session }) {
     setTransactions((data || []).slice(0, 100))
   }
 
+  async function handleAddProduct(e) {
+    e.preventDefault()
+    if (!productName.trim()) return
+    const price = parseFloat(String(productPrice).replace(',', '.'))
+    if (Number.isNaN(price) || price < 0) {
+      alert('Bitte einen gültigen Preis eingeben.')
+      return
+    }
+    setProductSaving(true)
+    try {
+      await apiCreateProduct({ name: productName.trim(), price })
+      setProductName('')
+      setProductPrice('')
+      fetchProducts()
+    } catch (err) {
+      alert('Fehler: ' + (err.data?.error || err.message))
+    } finally {
+      setProductSaving(false)
+    }
+  }
+
+  function startEditProduct(p) {
+    setEditingProductId(p.id)
+    setEditProductName(p.name)
+    setEditProductPrice(String(p.price))
+  }
+
+  function cancelEditProduct() {
+    setEditingProductId(null)
+    setEditProductName('')
+    setEditProductPrice('')
+  }
+
+  async function saveEditProduct() {
+    if (editingProductId == null) return
+    const price = parseFloat(String(editProductPrice).replace(',', '.'))
+    if (!editProductName.trim()) {
+      alert('Name darf nicht leer sein.')
+      return
+    }
+    if (Number.isNaN(price) || price < 0) {
+      alert('Bitte einen gültigen Preis eingeben.')
+      return
+    }
+    setProductSaving(true)
+    try {
+      await apiUpdateProduct(editingProductId, { name: editProductName.trim(), price })
+      cancelEditProduct()
+      fetchProducts()
+    } catch (err) {
+      alert('Fehler: ' + (err.data?.error || err.message))
+    } finally {
+      setProductSaving(false)
+    }
+  }
+
+  async function toggleProductActive(p) {
+    if (!window.confirm(`Produkt „${p.name}“ wirklich ${p.is_active ? 'deaktivieren' : 'wieder aktivieren'}?`)) return
+    try {
+      await apiUpdateProduct(p.id, { is_active: !p.is_active })
+      fetchProducts()
+    } catch (err) {
+      alert('Fehler: ' + (err.data?.error || err.message))
+    }
+  }
+
   async function toggleCancelTransaction(id, currentStatus) {
     if (!window.confirm(`Buchung wirklich ${currentStatus ? 'reaktivieren' : 'stornieren'}?`)) return
     try {
@@ -224,6 +311,92 @@ export default function AdminPanel({ session }) {
             {guestLoading ? '...' : 'Anlegen'}
           </button>
         </form>
+      </div>
+
+      {/* SNACKS & GETRÄNKE (Produkte für Strichliste) */}
+      <div style={{ ...cardStyle, borderLeft: '6px solid #f59e0b' }}>
+        <h3 style={{ margin: '0 0 12px 0', fontSize: '1rem' }}>🥤 Snacks & Getränke</h3>
+        <p style={{ margin: '0 0 12px 0', fontSize: '0.8rem', color: '#6b7280' }}>
+          Produkte für die Strichliste. Inaktive erscheinen nicht mehr in der Auswahl.
+        </p>
+        <form onSubmit={handleAddProduct} style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap' }}>
+          <input
+            type="text"
+            placeholder="Name (z. B. Cola, Schokoriegel)"
+            value={productName}
+            onChange={(e) => setProductName(e.target.value)}
+            style={{ ...brandingInputStyle, flex: '1', minWidth: '140px' }}
+          />
+          <input
+            type="text"
+            inputMode="decimal"
+            placeholder="Preis (€)"
+            value={productPrice}
+            onChange={(e) => setProductPrice(e.target.value)}
+            style={{ ...brandingInputStyle, width: '80px' }}
+          />
+          <button type="submit" disabled={productSaving} style={{ ...actionBtnStyle, backgroundColor: '#f59e0b', color: 'white' }}>
+            {productSaving ? '…' : 'Anlegen'}
+          </button>
+        </form>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ textAlign: 'left', borderBottom: '1px solid #f3f4f6' }}>
+                <th style={thStyle}>Name</th>
+                <th style={thStyle}>Preis</th>
+                <th style={{ ...thStyle, textAlign: 'right' }}>Aktion</th>
+              </tr>
+            </thead>
+            <tbody>
+              {products.map((p) => (
+                <tr key={p.id} style={{ borderBottom: '1px solid #f9fafb', opacity: p.is_active ? 1 : 0.6 }}>
+                  <td style={tdStyle}>
+                    {editingProductId === p.id ? (
+                      <input
+                        type="text"
+                        value={editProductName}
+                        onChange={(e) => setEditProductName(e.target.value)}
+                        style={{ ...brandingInputStyle, padding: '6px 8px', fontSize: '0.9rem' }}
+                      />
+                    ) : (
+                      p.name
+                    )}
+                  </td>
+                  <td style={tdStyle}>
+                    {editingProductId === p.id ? (
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={editProductPrice}
+                        onChange={(e) => setEditProductPrice(e.target.value)}
+                        style={{ ...brandingInputStyle, width: '70px', padding: '6px 8px', fontSize: '0.9rem' }}
+                      />
+                    ) : (
+                      `${Number(p.price).toFixed(2)} €`
+                    )}
+                  </td>
+                  <td style={{ ...tdStyle, textAlign: 'right' }}>
+                    {editingProductId === p.id ? (
+                      <>
+                        <button onClick={saveEditProduct} disabled={productSaving} style={miniBtnStyle}>Speichern</button>
+                        <button onClick={cancelEditProduct} style={miniBtnStyle}>Abbrechen</button>
+                      </>
+                    ) : (
+                      <>
+                        <button onClick={() => startEditProduct(p)} style={miniBtnStyle}>Bearbeiten</button>
+                        <button onClick={() => toggleProductActive(p)} style={miniBtnStyle}>
+                          {p.is_active ? 'Deaktivieren' : 'Aktivieren'}
+                        </button>
+                      </>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {products.length === 0 && <p style={{ margin: '12px 0 0 0', fontSize: '0.85rem', color: '#9ca3af' }}>Noch keine Produkte. Lege oben ein neues an.</p>}
       </div>
 
       {/* FRÜHSTÜCKS-CONTROL */}

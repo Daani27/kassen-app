@@ -192,8 +192,23 @@ export async function apiSearchProfiles(name) {
 }
 
 // --- Products ---
-export async function apiGetProducts() {
-  return request('/api/products')
+export async function apiGetProducts(all = false) {
+  const q = all ? '?all=true' : ''
+  return request(`/api/products${q}`)
+}
+
+export async function apiCreateProduct(payload) {
+  return request('/api/products', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function apiUpdateProduct(id, payload) {
+  return request(`/api/products/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
 }
 
 // --- Transactions ---
