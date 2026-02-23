@@ -279,6 +279,53 @@ export default function AdminPanel({ session }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: SECTION_GAP }}>
 
+      <div style={{ ...themeCard, background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)', border: '1px solid #bae6fd' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+          <span style={{ fontSize: '1.5rem' }}>🥖</span>
+          <h3 style={{ margin: 0, color: '#0369a1', fontSize: '1.1rem' }}>Einkaufsliste Heute</h3>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <div style={statBoxStyle}>
+            <span style={statLabelStyle}>Normal</span>
+            <div style={statValueStyle}>{fruehstueckSummary.normal}</div>
+          </div>
+          <div style={statBoxStyle}>
+            <span style={statLabelStyle}>Körner</span>
+            <div style={statValueStyle}>{fruehstueckSummary.koerner}</div>
+          </div>
+        </div>
+      </div>
+
+      <div style={themeCard}>
+        <h3 style={{ marginTop: 0, marginBottom: '16px', fontSize: '1.1rem' }}>📊 Salden-Übersicht</h3>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ textAlign: 'left', borderBottom: '1px solid #f3f4f6' }}>
+                <th style={thStyle}>Name</th>
+                <th style={thStyle}>Saldo</th>
+                <th style={{ ...thStyle, textAlign: 'right' }}>Aktion</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map(u => (
+                <tr key={u.id} style={{ borderBottom: '1px solid #f9fafb' }}>
+                  <td style={tdStyle}>{u.username || 'Unbekannt'}</td>
+                  <td style={{ ...tdStyle, color: (Number(u.balance) || 0) < 0 ? '#ef4444' : '#10b981', fontWeight: 'bold' }}>
+                    {(Number(u.balance) || 0).toFixed(2)} €
+                  </td>
+                  <td style={{ ...tdStyle, textAlign: 'right' }}>
+                    <button onClick={() => handlePayment(u.id, u.username)} style={miniBtnStyle}>
+                      💶 Cash
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <div style={{ ...themeCard, borderLeft: '6px solid #f59e0b', background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)' }}>
         <h3 style={{ margin: '0 0 8px 0', fontSize: '1rem' }}>🔔 Ruf-Funktionen</h3>
         {openMealTitle && <p style={{ margin: 0, fontSize: '0.8rem', color: '#92400e' }}>Offene Mahlzeit: {openMealTitle}</p>}
@@ -397,23 +444,6 @@ export default function AdminPanel({ session }) {
         {products.length === 0 && <p style={{ margin: '12px 0 0 0', fontSize: '0.85rem', color: '#9ca3af' }}>Noch keine Produkte. Lege oben ein neues an.</p>}
       </div>
 
-      <div style={{ ...themeCard, background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)', border: '1px solid #bae6fd' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-          <span style={{ fontSize: '1.5rem' }}>🥖</span>
-          <h3 style={{ margin: 0, color: '#0369a1', fontSize: '1.1rem' }}>Einkaufsliste Heute</h3>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-          <div style={statBoxStyle}>
-            <span style={statLabelStyle}>Normal</span>
-            <div style={statValueStyle}>{fruehstueckSummary.normal}</div>
-          </div>
-          <div style={statBoxStyle}>
-            <span style={statLabelStyle}>Körner</span>
-            <div style={statValueStyle}>{fruehstueckSummary.koerner}</div>
-          </div>
-        </div>
-      </div>
-
       <div style={{ ...themeCard, borderLeft: `6px solid ${regEnabled ? '#10b981' : '#ef4444'}` }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
@@ -481,36 +511,6 @@ export default function AdminPanel({ session }) {
           <button onClick={saveBranding} disabled={brandingSaving} style={{ ...actionBtnStyle, backgroundColor: '#8b5cf6', color: 'white', alignSelf: 'flex-start' }}>
             {brandingSaving ? 'Speichern…' : 'Branding speichern'}
           </button>
-        </div>
-      </div>
-
-      <div style={themeCard}>
-        <h3 style={{ marginTop: 0, marginBottom: '16px', fontSize: '1.1rem' }}>📊 Salden-Übersicht</h3>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ textAlign: 'left', borderBottom: '1px solid #f3f4f6' }}>
-                <th style={thStyle}>Name</th>
-                <th style={thStyle}>Saldo</th>
-                <th style={{ ...thStyle, textAlign: 'right' }}>Aktion</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map(u => (
-                <tr key={u.id} style={{ borderBottom: '1px solid #f9fafb' }}>
-                  <td style={tdStyle}>{u.username || 'Unbekannt'}</td>
-                  <td style={{ ...tdStyle, color: (Number(u.balance) || 0) < 0 ? '#ef4444' : '#10b981', fontWeight: 'bold' }}>
-                    {(Number(u.balance) || 0).toFixed(2)} €
-                  </td>
-                  <td style={{ ...tdStyle, textAlign: 'right' }}>
-                    <button onClick={() => handlePayment(u.id, u.username)} style={miniBtnStyle}>
-                      💶 Cash
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
         </div>
       </div>
 
