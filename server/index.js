@@ -1,5 +1,9 @@
 import 'dotenv/config'
 import express from 'express'
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason)
+})
 import cors from 'cors'
 import { registerAuthRoutes } from './routes/auth.js'
 import { registerAppSettingsRoutes } from './routes/appSettings.js'
@@ -28,6 +32,12 @@ registerPushRoutes(app)
 registerGuestRoutes(app)
 registerFruehstueckRoutes(app)
 registerBrandingRoutes(app)
+
+// Zentraler Error-Handler: verhindert "Empty reply" bei unbehandelten Fehlern (z. B. DB)
+app.use((err, req, res, next) => {
+  console.error(err)
+  res.status(500).json({ error: 'Serverfehler', message: err?.message || 'Unbekannter Fehler' })
+})
 
 const PORT = process.env.PORT || 3001
 app.listen(PORT, () => {

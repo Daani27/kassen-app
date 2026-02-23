@@ -351,6 +351,43 @@ Certbot passt die Nginx-Konfiguration an und richtet SSL ein. Automatische Verl�
 
 ---
 
+## 7.1 Fehler: 502 Bad Gateway
+
+**Ursache:** Nginx leitet Anfragen (z. B. `/api/...`) an das Backend weiter, aber das Backend antwortet nicht.
+
+**Prüfen (auf dem Server):**
+
+1. **Backend läuft?**
+   ```bash
+   sudo systemctl status kasse-api
+   ```
+   Wenn „inactive“ oder „failed“: Service starten und Logs ansehen:
+   ```bash
+   sudo systemctl start kasse-api
+   sudo journalctl -u kasse-api -n 50 --no-pager
+   ```
+
+2. **Backend hört auf Port 3001?**
+   ```bash
+   curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3001/api/branding
+   # Erwartung: 200 oder 401 (nicht „Connection refused“). Alternativ:
+   ss -tlnp | grep 3001
+   ```
+   Wenn nichts auf 3001 hört: Backend-Start prüfen (`.env`, `DATABASE_URL`, `JWT_SECRET` in Produktion gesetzt).
+
+3. **Nginx-Konfiguration:** `proxy_pass` muss auf dasselbe Backend zeigen:
+   ```nginx
+   location /api/ {
+       proxy_pass http://127.0.0.1:3001/api/;
+       ...
+   }
+   ```
+   Danach: `sudo nginx -t` und `sudo systemctl reload nginx`.
+
+4. **Rechte:** Der User des systemd-Services (z. B. `www-data`) braucht Lese-/Ausführungsrechte auf `/var/www/kassen-app/server` und Leserecht auf `server/.env`.
+
+---
+
 ## 8. Updates deployen
 
 1. **Code aktualisieren** (z. B. `git pull` im Projektordner).
