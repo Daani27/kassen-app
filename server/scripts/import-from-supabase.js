@@ -36,14 +36,14 @@ const supabaseProjectRef = process.env.SUPABASE_DB_PROJECT_REF
 const hasFullUrl = !!SUPABASE_URL
 const hasHostAndPassword = !!(supabaseHost && supabasePasswordOnly)
 const usePooler = !!supabasePoolerHost && !!supabasePasswordOnly
-const projectRef = supabaseProjectRef || (supabaseHost && supabaseHost.replace(/^db\.|\.supabase\.co$/g, '').trim()) || ''
+const projectRef = String(supabaseProjectRef || (supabaseHost && supabaseHost.replace(/^db\.|\.supabase\.co$/g, '')) || '').trim()
 
 let resolvedSupabaseUrl = SUPABASE_URL
 if (usePooler && projectRef) {
   const user = `postgres.${projectRef}`
   const host = String(supabasePoolerHost).trim()
-  const port = process.env.SUPABASE_DB_POOLER_PORT || '5432'
-  resolvedSupabaseUrl = `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(String(supabasePasswordOnly).trim())}@${host}:${port}/postgres`
+  const port = process.env.SUPABASE_DB_POOLER_PORT || '6543'
+  resolvedSupabaseUrl = `postgresql://${user}:${encodeURIComponent(String(supabasePasswordOnly).trim())}@${host}:${port}/postgres`
 } else if (hasHostAndPassword) {
   resolvedSupabaseUrl = `postgresql://postgres:${encodeURIComponent(String(supabasePasswordOnly).trim())}@${String(supabaseHost).trim().replace(/^@/, '')}:5432/postgres`
 }
