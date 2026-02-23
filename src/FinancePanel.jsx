@@ -407,7 +407,7 @@ export default function FinancePanel({ session, isAdmin }) {
                     textAlign: 'right',
                     minWidth: '80px'
                   }}>
-                    {amt > 0 ? '+' : ''}{amt.toFixed(2)} €
+                    {amt > 0 ? '+' : ''}{(Number(amt) || 0).toFixed(2)} €
                   </span>
 
                   <button 

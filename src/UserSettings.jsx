@@ -186,7 +186,7 @@ export default function UserSettings({ session, profile, onUpdate, transactions 
                   fontSize: '0.95rem',
                   color: amt < 0 ? '#1e293b' : '#10b981'
                 }}>
-                  {amt < 0 ? '' : '+'}{(amt).toFixed(2)} €
+                  {amt < 0 ? '' : '+'}{(Number(amt) || 0).toFixed(2)} €
                 </div>
               </div>
             )})

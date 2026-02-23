@@ -172,10 +172,10 @@ export default function AdminPanel({ session }) {
     if (profiles) {
       const userBalances = profiles.map(p => {
         const userTrans = trans ? trans.filter(t => t.user_id === p.id && !t.is_cancelled) : []
-        const balance = userTrans.reduce((sum, t) => sum + Number(t.amount), 0)
-        return { id: p.id, username: p.username, balance }
+        const balance = userTrans.reduce((sum, t) => sum + (Number(t.amount) || 0), 0)
+        return { id: p.id, username: p.username, balance: Number.isFinite(balance) ? balance : 0 }
       })
-      setUsers(userBalances.sort((a, b) => a.balance - b.balance))
+      setUsers(userBalances.sort((a, b) => (Number(a.balance) || 0) - (Number(b.balance) || 0)))
     }
   }
 
@@ -208,7 +208,7 @@ export default function AdminPanel({ session }) {
   function startEditProduct(p) {
     setEditingProductId(p.id)
     setEditProductName(p.name)
-    setEditProductPrice(String(p.price))
+    setEditProductPrice(String(Number(p.price) || ''))
   }
 
   function cancelEditProduct() {
@@ -545,7 +545,7 @@ export default function AdminPanel({ session }) {
                   color: t.is_cancelled ? '#9ca3af' : (amt >= 0 ? '#10b981' : '#ef4444'),
                   fontSize: '0.9rem'
                 }}>
-                  {amt.toFixed(2)} €
+                  {(Number(amt) || 0).toFixed(2)} €
                 </span>
                 <button onClick={() => toggleCancelTransaction(t.id, t.is_cancelled)} style={iconBtnStyle}>
                   {t.is_cancelled ? '🔄' : '🚫'}

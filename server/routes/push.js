@@ -39,7 +39,10 @@ export function registerPushRoutes(app) {
       return res.status(403).json({ error: 'Nur Admins können Push senden' })
     }
     if (!VAPID_PUBLIC || !VAPID_PRIVATE) {
-      return res.status(503).json({ error: 'Push nicht konfiguriert (VAPID Keys fehlen)' })
+      return res.status(503).json({
+        error: 'Push nicht konfiguriert (VAPID Keys fehlen)',
+        hint: 'In server/.env: VAPID_PUBLIC_KEY und VAPID_PRIVATE_KEY setzen (npx web-push generate-vapid-keys). VAPID_SUBJECT=mailto:deine@email.de für iOS.'
+      })
     }
     let defaultTitle = 'Kasse'
     try {
@@ -51,7 +54,7 @@ export function registerPushRoutes(app) {
     const payload = JSON.stringify({ title, body })
 
     const subs = await query('SELECT endpoint, p256dh, auth FROM push_subscriptions')
-    let ok = 0
+    let sent = 0
     let failed = 0
     for (const row of subs.rows) {
       try {
@@ -60,12 +63,20 @@ export function registerPushRoutes(app) {
           payload,
           { TTL: 86400 }
         )
-        ok++
+        sent++
       } catch (e) {
         failed++
         console.warn('Push failed:', row.endpoint?.slice(0, 80), e.message)
       }
     }
-    return res.json({ sent: ok, failed })
+    const hint = subs.rows.length === 0
+      ? 'Keine Geräte angemeldet. Nutzer müssen in Einstellungen → Push-Benachrichtigungen aktivieren.'
+      : null
+    return res.json({
+      sent,
+      failed,
+      hint,
+      vapid_debug: VAPID_PUBLIC ? { publicKeyPrefix: VAPID_PUBLIC.slice(0, 20), subject: VAPID_SUBJECT } : null
+    })
   })
 }

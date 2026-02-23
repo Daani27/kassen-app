@@ -5,7 +5,8 @@
 import { apiPushSubscribe, apiPushUnsubscribe, apiSendPush } from './api'
 
 const VAPID_PUBLIC = import.meta.env.VITE_VAPID_PUBLIC_KEY
-const API_URL = import.meta.env.VITE_API_URL
+// API_URL kann leer sein bei gleicher Domain (relative Pfade); Push braucht nur VAPID
+const API_URL = import.meta.env.VITE_API_URL || ''
 
 export function isIos() {
   if (typeof navigator === 'undefined') return false
@@ -26,8 +27,7 @@ export function isPushSupported() {
     'serviceWorker' in navigator &&
     'PushManager' in window &&
     'Notification' in window &&
-    !!VAPID_PUBLIC &&
-    !!API_URL
+    !!VAPID_PUBLIC
   if (!hasApis) return false
   if (isIos() && !isStandalone()) return false
   return true
@@ -63,8 +63,8 @@ export async function requestPermissionAndSubscribe(userId) {
     lastPushError = 'App muss vom Home-Bildschirm geöffnet sein'
     return 'unsupported'
   }
-  if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window) || !VAPID_PUBLIC || !API_URL) {
-    lastPushError = 'Push wird in dieser Umgebung nicht unterstützt'
+  if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window) || !VAPID_PUBLIC) {
+    lastPushError = 'Push wird in dieser Umgebung nicht unterstützt (VAPID-Public-Key prüfen)'
     return 'unsupported'
   }
 
@@ -139,7 +139,8 @@ export async function unsubscribe(userId) {
  * Token wird aus dem API-Client (Session) gelesen.
  */
 export async function sendPushToAll(title, body, _session) {
-  if (!API_URL || !title) return { ok: false, error: 'Push nicht konfiguriert' }
+  if (!title) return { ok: false, error: 'Titel fehlt' }
+  if (!VAPID_PUBLIC) return { ok: false, error: 'Push nicht konfiguriert (VITE_VAPID_PUBLIC_KEY in .env)' }
   try {
     const data = await apiSendPush(title, body)
     return { ok: true, sent: data.sent ?? 0, failed: data.failed ?? 0, hint: data.hint || null, vapid_debug: data.vapid_debug || null }

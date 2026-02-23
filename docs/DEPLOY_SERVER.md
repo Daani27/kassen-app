@@ -437,6 +437,36 @@ Certbot passt die Nginx-Konfiguration an und richtet SSL ein. Automatische Verl�
 
 ---
 
+## 7.3 Push-Benachrichtigungen funktionieren nicht
+
+**Checkliste:**
+
+1. **VAPID-Keys gesetzt (Backend)**  
+   In **server/.env** müssen stehen:
+   - `VAPID_PUBLIC_KEY=` (öffentlicher Key, **dasselbe** wie im Frontend)
+   - `VAPID_PRIVATE_KEY=` (privater Key, nur im Backend)
+   - Optional für iOS: `VAPID_SUBJECT=mailto:deine-email@domain.de` (gültige E-Mail mit Domain)
+
+   Keys erzeugen: `npx web-push generate-vapid-keys` (nur einmal, dasselbe Paar überall verwenden).
+
+2. **Frontend-Build (.env)**  
+   Im **Projektroot** vor dem Build:
+   - `VITE_VAPID_PUBLIC_KEY=` **exakt** den gleichen Wert wie `VAPID_PUBLIC_KEY` im Backend
+   - `VITE_API_URL` kann bei gleicher Domain leer sein – Push funktioniert dann mit relativen Pfaden
+
+3. **Nutzer müssen Push aktivieren**  
+   Einstellungen → Push-Benachrichtigungen → **Aktivieren** und Browser-Berechtigung bestätigen. Ohne Eintrag in der Tabelle `push_subscriptions` sendet „Kasse ist offen“ an 0 Geräte.
+
+4. **HTTPS**  
+   Web Push funktioniert nur über HTTPS (oder localhost). Bei Cloudflare Tunnel ist HTTPS gegeben.
+
+5. **iOS/Safari**  
+   Push nur, wenn die App **vom Home-Bildschirm** geöffnet wird (PWA), nicht aus dem Browser-Tab. `VAPID_SUBJECT` mit gültiger `mailto:`-E-Mail setzen.
+
+**Prüfen:** Nach Klick auf „Kasse ist offen“ zeigt die Meldung „Push an X Gerät(e) gesendet“ oder „Keine Geräte …“. Bei Fehlern: Backend-Logs `journalctl -u kasse-api -n 30` und Browser-Konsole (F12) prüfen.
+
+---
+
 ## 8. Updates deployen
 
 1. **Code aktualisieren** (z. B. `git pull` im Projektordner).

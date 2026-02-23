@@ -128,7 +128,7 @@ export default function StatisticsPanel() {
           t.is_cancelled ? `[STORNO] ${t.type}` : t.type,
           t.name || '—',
           t.description || '',
-          `${amt.toFixed(2)} €`
+          `${(Number(amt) || 0).toFixed(2)} €`
         ]
       })
 
@@ -147,12 +147,12 @@ export default function StatisticsPanel() {
       const inc = Number(data.income) || 0
       const exp = Number(data.expenses) || 0
       const eb = Number(data.endBalance) || 0
-      doc.text(`Anfangsbestand (Bar):`, 14, finalY); doc.text(`${sb.toFixed(2)} €`, 80, finalY)
-      doc.text(`Einnahmen (+):`, 14, finalY + 7); doc.text(`${inc.toFixed(2)} €`, 80, finalY + 7)
-      doc.text(`Ausgaben (-):`, 14, finalY + 14); doc.text(`${exp.toFixed(2)} €`, 80, finalY + 14)
+      doc.text(`Anfangsbestand (Bar):`, 14, finalY); doc.text(`${(Number(sb) || 0).toFixed(2)} €`, 80, finalY)
+      doc.text(`Einnahmen (+):`, 14, finalY + 7); doc.text(`${(Number(inc) || 0).toFixed(2)} €`, 80, finalY + 7)
+      doc.text(`Ausgaben (-):`, 14, finalY + 14); doc.text(`${(Number(exp) || 0).toFixed(2)} €`, 80, finalY + 14)
 
       doc.setLineWidth(0.5); doc.line(14, finalY + 18, 100, finalY + 18)
-      doc.setFont(undefined, 'bold'); doc.text(`Endbestand (Bar):`, 14, finalY + 25); doc.text(`${eb.toFixed(2)} €`, 80, finalY + 25)
+      doc.setFont(undefined, 'bold'); doc.text(`Endbestand (Bar):`, 14, finalY + 25); doc.text(`${(Number(eb) || 0).toFixed(2)} €`, 80, finalY + 25)
 
       doc.save(`Kassenbericht_${startDate}.pdf`)
     } catch (err) { console.error(err); alert("Fehler beim PDF-Export") }
@@ -221,7 +221,7 @@ export default function StatisticsPanel() {
                   color: t.is_cancelled ? '#cbd5e1' : (amt > 0 ? '#10b981' : '#ef4444'),
                   textDecoration: t.is_cancelled ? 'line-through' : 'none'
                 }}>
-                  {amt > 0 ? '+' : ''}{amt.toFixed(2)} €
+                  {amt > 0 ? '+' : ''}{(Number(amt) || 0).toFixed(2)} €
                 </div>
               </div>
             )})
