@@ -5,14 +5,24 @@
  *
  * Voraussetzung:
  * - Schema der Zieldatenbank ist angelegt (server/schema.sql).
- * - SUPABASE_DATABASE_URL = direkte Postgres-URL von Supabase (Project Settings → Database → Connection string, URI)
- * - DATABASE_URL = eigene Zieldatenbank
+ * - In server/.env: DATABASE_URL sowie SUPABASE_DATABASE_URL ODER SUPABASE_DB_HOST + SUPABASE_DB_PASSWORD
  *
- * Aufruf aus dem server/-Verzeichnis:
- *   node scripts/import-from-supabase.js
+ * Aufruf (aus Projektroot oder aus server/):
+ *   node server/scripts/import-from-supabase.js
+ *   cd server && node scripts/import-from-supabase.js
  */
-import 'dotenv/config'
+import path from 'path'
+import { fileURLToPath } from 'url'
+import dotenv from 'dotenv'
 import pg from 'pg'
+
+// Immer server/.env laden (egal von wo das Skript gestartet wird)
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const serverEnv = path.join(__dirname, '..', '.env')
+const envResult = dotenv.config({ path: serverEnv })
+if (envResult.error && process.env.NODE_ENV !== 'production') {
+  console.warn('Hinweis: server/.env nicht gefunden unter:', serverEnv)
+}
 
 const { Pool } = pg
 
@@ -28,12 +38,12 @@ const resolvedSupabaseUrl = hasHostAndPassword
   : SUPABASE_URL
 
 if (!TARGET_URL) {
-  console.error('Fehler: DATABASE_URL muss in server/.env gesetzt sein (Zieldatenbank).')
+  console.error('Fehler: DATABASE_URL fehlt. Gesetzte .env:', serverEnv)
   process.exit(1)
 }
 if (!resolvedSupabaseUrl) {
   console.error(
-    'Fehler: Supabase-Zugang fehlt. In server/.env eine der Varianten setzen:\n' +
+    'Fehler: Supabase-Zugang fehlt. In dieser .env eine der Varianten eintragen:\n  ' + serverEnv + '\n' +
     '  A) SUPABASE_DATABASE_URL=postgresql://postgres:PASSWORT@db.xxxx.supabase.co:5432/postgres\n' +
     '  B) SUPABASE_DB_HOST=db.xxxx.supabase.co  und  SUPABASE_DB_PASSWORD=dein_passwort'
   )
