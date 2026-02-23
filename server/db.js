@@ -2,32 +2,45 @@ import pg from 'pg'
 
 const { Pool } = pg
 
-// Passwort immer als String übergeben (vermeidet "client password must be a string")
-const rawUrl = process.env.DATABASE_URL
-let poolConfig = { max: 10, idleTimeoutMillis: 30000 }
-if (rawUrl) {
+// Passwort immer explizit als String (vermeidet "client password must be a string")
+const rawUrl = process.env.DATABASE_URL || ''
+const dbPassword = process.env.DATABASE_PASSWORD
+const passwordStr = dbPassword != null && dbPassword !== '' ? String(dbPassword) : null
+
+function buildConfig() {
   try {
     const url = new URL(rawUrl)
-    // DATABASE_PASSWORD aus Env hat Vorrang (hilft bei Sonderzeichen in der URL)
-    const password = process.env.DATABASE_PASSWORD !== undefined && process.env.DATABASE_PASSWORD !== ''
-      ? process.env.DATABASE_PASSWORD
-      : (url.password ?? '')
-    poolConfig = {
-      ...poolConfig,
-      host: url.hostname,
-      port: url.port || 5432,
+    const password = passwordStr ?? url.password ?? ''
+    return {
+      max: 10,
+      idleTimeoutMillis: 30000,
+      host: url.hostname || 'localhost',
+      port: Number(url.port) || 5432,
       user: url.username || undefined,
       password: String(password),
       database: (url.pathname || '').replace(/^\//, '') || undefined,
       ssl: url.searchParams.get('sslmode') === 'require' ? { rejectUnauthorized: false } : false
     }
   } catch {
-    poolConfig.connectionString = rawUrl
+    if (!rawUrl) return { connectionString: rawUrl }
+    const m = rawUrl.match(/^(?:postgres(?:ql)?:)?\/\/(?:([^:]+)(?::([^@]*))?@)?([^:/]+)(?::(\d+))?(\/[^?]*)?/)
+    if (m) {
+      const [, user, urlPass, host, port, path] = m
+      return {
+        max: 10,
+        idleTimeoutMillis: 30000,
+        host: host || 'localhost',
+        port: port ? Number(port) : 5432,
+        user: user || undefined,
+        password: String(passwordStr ?? urlPass ?? ''),
+        database: path ? path.replace(/^\//, '') : undefined
+      }
+    }
+    return { connectionString: rawUrl }
   }
-} else {
-  poolConfig.connectionString = rawUrl
 }
 
+const poolConfig = buildConfig()
 const pool = new Pool(poolConfig)
 
 export async function query(text, params) {
