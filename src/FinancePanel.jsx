@@ -81,29 +81,34 @@ export default function FinancePanel({ session, isAdmin }) {
         .reduce((sum, e) => sum + Math.abs(Number(e.amount) || 0), 0)
       setDinnerTotal(todayD)
 
-      const allUserTransactions = (userTrans || []).map(t => ({
-        id: t.id,
-        created_at: t.created_at,
-        description: t.amount > 0 ? `Einzahlung: ${profileMap[t.user_id]}` : t.description,
-        amount: t.amount,
-        userLabel: t.amount > 0 ? 'Konto-Aufladung' : (profileMap[t.user_id] || 'Nutzer'),
-        type: 'user_trans',
-        is_cancelled: t.is_cancelled,
-        flowFrom: t.amount > 0 ? 'Bar (Kasse)' : `Konto ${profileMap[t.user_id] || ''}`,
-        flowTo: t.amount > 0 ? `Konto ${profileMap[t.user_id] || ''}` : (t.description || 'Ausgabe'),
-        accountName: profileMap[t.user_id] || 'Nutzer'
-      }))
+      const allUserTransactions = (userTrans || []).map(t => {
+        const amt = Number(t.amount) || 0
+        const userLabel = profileMap[t.user_id] || t.user_username || 'Nutzer'
+        return {
+          id: t.id,
+          created_at: t.created_at ?? null,
+          description: amt > 0 ? `Einzahlung: ${userLabel}` : (t.description || 'Ausgabe'),
+          amount: amt,
+          userLabel: amt > 0 ? 'Konto-Aufladung' : userLabel,
+          type: 'user_trans',
+          is_cancelled: !!t.is_cancelled,
+          flowFrom: amt > 0 ? 'Bar (Kasse)' : `Konto ${userLabel}`,
+          flowTo: amt > 0 ? `Konto ${userLabel}` : (t.description || 'Ausgabe'),
+          accountName: userLabel
+        }
+      })
 
       const expenses = (globalExp || []).map(e => {
-        const isEinnahme = Number(e.amount) > 0
+        const amt = Number(e.amount) || 0
+        const isEinnahme = amt > 0
         return {
           id: e.id,
-          created_at: e.created_at,
-          description: e.description,
-          amount: e.amount,
+          created_at: e.created_at ?? null,
+          description: e.description || 'Ausgabe',
+          amount: amt,
           userLabel: profileMap[e.created_by] || 'Unbekannt',
           type: 'global_exp',
-          is_cancelled: e.is_cancelled,
+          is_cancelled: !!e.is_cancelled,
           flowFrom: isEinnahme ? 'Korrektur / Bar' : 'Kasse (Barbestand)',
           flowTo: isEinnahme ? 'Kasse (Barbestand)' : 'Ausgabe',
           createdByName: profileMap[e.created_by] || 'Unbekannt',
@@ -112,7 +117,11 @@ export default function FinancePanel({ session, isAdmin }) {
       })
 
       const combined = [...allUserTransactions, ...expenses]
-        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        .sort((a, b) => {
+          const ta = a.created_at ? new Date(a.created_at).getTime() : 0
+          const tb = b.created_at ? new Date(b.created_at).getTime() : 0
+          return tb - ta
+        })
 
       setAllHistory(combined)
       setRecentHistory(combined.slice(0, 25))
@@ -215,15 +224,25 @@ export default function FinancePanel({ session, isAdmin }) {
 
   const formatEuro = (val) => (Number(val) || 0).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })
 
+  const safeDateStr = (item) => {
+    try {
+      const d = item?.created_at ? new Date(item.created_at) : null
+      return d && !Number.isNaN(d.getTime()) ? d.toISOString().split('T')[0] : ''
+    } catch {
+      return ''
+    }
+  }
+
   const hasActiveFilter = searchText.trim() || dateFrom || dateTo || filterAmount
   const displayHistory = hasActiveFilter
     ? allHistory.filter(item => {
-        const text = `${item.description} ${item.userLabel}`.toLowerCase()
+        const text = `${item.description || ''} ${item.userLabel || ''}`.toLowerCase()
         const matchText = !searchText.trim() || text.includes(searchText.trim().toLowerCase())
-        const d = new Date(item.created_at).toISOString().split('T')[0]
+        const d = safeDateStr(item)
         const matchFrom = !dateFrom || d >= dateFrom
         const matchTo = !dateTo || d <= dateTo
-        const matchAmount = !filterAmount || (filterAmount === 'pos' && item.amount > 0) || (filterAmount === 'neg' && item.amount < 0)
+        const amt = Number(item.amount) || 0
+        const matchAmount = !filterAmount || (filterAmount === 'pos' && amt > 0) || (filterAmount === 'neg' && amt < 0)
         return matchText && matchFrom && matchTo && matchAmount
       })
     : recentHistory
@@ -341,7 +360,15 @@ export default function FinancePanel({ session, isAdmin }) {
           {displayHistory.length === 0 ? (
             <p style={{ textAlign: 'center', color: '#9ca3af', fontSize: '0.85rem', padding: '20px' }}>Keine Buchungen gefunden.</p>
           ) : (
-            displayHistory.map(item => (
+            displayHistory.map(item => {
+              const amt = Number(item.amount) || 0
+              const createdDate = item?.created_at ? (() => {
+                try {
+                  const d = new Date(item.created_at)
+                  return Number.isNaN(d.getTime()) ? '' : d.toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' })
+                } catch { return '' }
+              })() : ''
+              return (
               <div key={`${item.type}-${item.id}`} style={{
                 ...listRowStyle, 
                 opacity: item.is_cancelled ? 0.4 : 1,
@@ -351,24 +378,24 @@ export default function FinancePanel({ session, isAdmin }) {
                     fontWeight: '700', 
                     fontSize: '0.9rem',
                     textDecoration: item.is_cancelled ? 'line-through' : 'none',
-                    color: item.amount > 0 ? '#10b981' : '#1f2937'
+                    color: amt > 0 ? '#10b981' : '#1f2937'
                   }}>
-                    {item.description}
+                    {item.description ?? '—'}
                   </div>
                   <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '2px' }}>
                     {item.type === 'user_trans' && (
-                      <span>Von: {item.flowFrom} → Zu: {item.flowTo}</span>
+                      <span>Von: {item.flowFrom ?? '—'} → Zu: {item.flowTo ?? '—'}</span>
                     )}
                     {item.type === 'global_exp' && (
                       <>
                         <span style={{ marginRight: '6px' }}>{item.isEinnahme ? '📥 Einnahme' : '📤 Ausgabe'}: </span>
-                        <span>Von: {item.flowFrom} → Zu: {item.flowTo}</span>
+                        <span>Von: {item.flowFrom ?? '—'} → Zu: {item.flowTo ?? '—'}</span>
                         {item.createdByName && <span> · Veranlasst von: <strong>{item.createdByName}</strong></span>}
                       </>
                     )}
                   </div>
                   <div style={{ fontSize: '0.7rem', color: '#9ca3af', marginTop: '2px' }}>
-                    {new Date(item.created_at).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' })}
+                    {createdDate}
                   </div>
                 </div>
 
@@ -376,11 +403,11 @@ export default function FinancePanel({ session, isAdmin }) {
                   <span style={{ 
                     fontWeight: '800', 
                     fontSize: '0.95rem',
-                    color: item.is_cancelled ? '#9ca3af' : (item.amount < 0 ? '#ef4444' : '#10b981'),
+                    color: item.is_cancelled ? '#9ca3af' : (amt < 0 ? '#ef4444' : '#10b981'),
                     textAlign: 'right',
                     minWidth: '80px'
                   }}>
-                    {item.amount > 0 ? '+' : ''}{item.amount.toFixed(2)} €
+                    {amt > 0 ? '+' : ''}{amt.toFixed(2)} €
                   </span>
 
                   <button 
@@ -392,7 +419,7 @@ export default function FinancePanel({ session, isAdmin }) {
                   </button>
                 </div>
               </div>
-            ))
+            )})
           )}
         </div>
       </div>
