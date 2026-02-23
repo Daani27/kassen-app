@@ -27,7 +27,15 @@ if (!SUPABASE_URL || !TARGET_URL) {
   process.exit(1)
 }
 
-const supabasePool = new Pool({ connectionString: SUPABASE_URL, max: 2 })
+// Optional: Passwort separat setzen (wird URL-encodiert), dann Host angeben (ohne Passwort in URL)
+const supabasePasswordOnly = process.env.SUPABASE_DB_PASSWORD
+const supabaseHost = process.env.SUPABASE_DB_HOST
+const resolvedSupabaseUrl =
+  supabasePasswordOnly && supabaseHost
+    ? `postgresql://postgres:${encodeURIComponent(supabasePasswordOnly.trim())}@${supabaseHost.replace(/^@/, '')}:5432/postgres`
+    : SUPABASE_URL
+
+const supabasePool = new Pool({ connectionString: resolvedSupabaseUrl, max: 2 })
 const targetPool = new Pool({ connectionString: TARGET_URL, max: 2 })
 
 /** Tabellen in Reihenfolge (FK-abhängig). Nur Tabellen, die in Supabase existieren können. */
@@ -173,6 +181,28 @@ async function run() {
 }
 
 run().catch((err) => {
-  console.error('Fehler:', err)
+  if (err.code === 'XX000' && /tenant|user not found/i.test(String(err.message))) {
+    console.error(
+      'Fehler: Supabase-Verbindung – "Tenant or user not found".\n' +
+      'Die SUPABASE_DATABASE_URL muss exakt so aus dem Dashboard stammen:\n' +
+      '  • Direct: postgresql://postgres:[PASSWORT]@db.[PROJECT-REF].supabase.co:5432/postgres\n' +
+      '  • Pooler (Session): postgresql://postgres.[PROJECT-REF]:[PASSWORT]@aws-0-[REGION].pooler.supabase.com:5432/postgres\n' +
+      'Project Settings → Database → Connection string kopieren (URI, mit Passwort).'
+    )
+  } else if (err.code === '28P01') {
+    const host = (resolvedSupabaseUrl.match(/@([^/:]+)/) || [])[1] || '(unbekannt)'
+    console.error(
+      'Fehler: Passwort-Authentifizierung für Supabase fehlgeschlagen (28P01).\n' +
+      `Verwendeter Host: ${host}\n` +
+      'Prüfen: 1) Richtige .env? (server/.env im Projektordner server/).\n' +
+      '2) Database-Passwort aus Supabase: Project Settings → Database → "Database password" (nicht Account-Passwort).\n' +
+      '3) Passwort gerade geändert? Einige Sekunden warten und erneut versuchen.\n' +
+      '4) Alternative: In server/.env nur Host + Passwort setzen (kein Passwort in URL):\n' +
+      '   SUPABASE_DB_HOST=db.xxxx.supabase.co\n' +
+      '   SUPABASE_DB_PASSWORD=dein_klares_passwort'
+    )
+  } else {
+    console.error('Fehler:', err.message || err)
+  }
   process.exit(1)
 })
