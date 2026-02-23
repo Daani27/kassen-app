@@ -116,15 +116,17 @@ export default function Dashboard({ session, onLogout }) {
   async function fetchUserData() {
     try {
       const profileData = await apiGetProfileMe()
-      setProfile(profileData)
+      setProfile(profileData ?? null)
 
-      const allTrans = await apiGetTransactions(session.user.id)
-      const nonCancelled = (allTrans || []).filter((t) => !t.is_cancelled)
-      const total = nonCancelled.reduce((acc, curr) => acc + Number(curr.amount), 0)
-      setBalance(total)
+      const allTrans = await apiGetTransactions(session?.user?.id)
+      const nonCancelled = (Array.isArray(allTrans) ? allTrans : []).filter((t) => !t.is_cancelled)
+      const total = nonCancelled.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0)
+      setBalance(Number.isFinite(total) ? total : 0)
       setUserTransactions(nonCancelled.slice(0, 20))
     } catch (error) {
       console.error('Fehler beim Laden:', error.message)
+      setBalance(0)
+      setUserTransactions([])
     }
   }
 
@@ -248,14 +250,14 @@ export default function Dashboard({ session, onLogout }) {
 
               {/* Balance Card */}
               <div style={{ 
-                background: balance < 0 ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : 'linear-gradient(135deg, #10b981 0%, #059669 100%)', 
+                background: (Number(balance) || 0) < 0 ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : 'linear-gradient(135deg, #10b981 0%, #059669 100%)', 
                 color: 'white', padding: '24px', borderRadius: '24px', marginTop: '20px', 
-                boxShadow: balance < 0 ? '0 10px 20px -5px rgba(239, 68, 68, 0.3)' : '0 10px 20px -5px rgba(16, 185, 129, 0.3)', 
+                boxShadow: (Number(balance) || 0) < 0 ? '0 10px 20px -5px rgba(239, 68, 68, 0.3)' : '0 10px 20px -5px rgba(16, 185, 129, 0.3)', 
                 position: 'relative', overflow: 'hidden' 
               }}>
                 <div style={{ opacity: 0.1, position: 'absolute', right: '-10px', bottom: '-10px', fontSize: '6rem' }}>💶</div>
                 <small style={{ opacity: 0.8, textTransform: 'uppercase', letterSpacing: '1.2px', fontSize: '0.7rem', fontWeight: '700' }}>Aktuelles Guthaben</small>
-                <h1 style={{ margin: '4px 0 0 0', fontSize: '2.8rem', fontWeight: '800' }}>{balance.toFixed(2)} €</h1>
+                <h1 style={{ margin: '4px 0 0 0', fontSize: '2.8rem', fontWeight: '800' }}>{(Number(balance) || 0).toFixed(2)} €</h1>
               </div>
 
               {/* Meal Info Mini-Panel */}
@@ -272,7 +274,7 @@ export default function Dashboard({ session, onLogout }) {
                   <div style={{ flex: 1, textAlign: 'right' }}>
                     <small style={{ color: '#9ca3af', display: 'block', fontSize: '0.65rem', fontWeight: '700', textTransform: 'uppercase' }}>Kosten p.P.</small>
                     <span style={{ fontWeight: '700', fontSize: '1rem', color: '#059669' }}>
-                      {mealInfo.price > 0 ? `${mealInfo.price.toFixed(2)} €` : "—"}
+                      {(Number(mealInfo.price) || 0) > 0 ? `${(Number(mealInfo.price) || 0).toFixed(2)} €` : "—"}
                     </span>
                   </div>
                 </div>

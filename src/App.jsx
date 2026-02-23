@@ -6,6 +6,7 @@ import Login from './Login'
 import Dashboard from './Dashboard'
 import GastPage from './GastPage'
 import PwaInstallBanner from './PwaInstallBanner'
+import ErrorBoundary from './ErrorBoundary'
 
 const APP_VERSION = import.meta.env.PACKAGE_VERSION || '3.0.0'
 
@@ -100,7 +101,11 @@ function App() {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
                 <PwaInstallBanner />
-                <div style={{ flex: 1 }}><Dashboard session={session} onLogout={() => setSession(null)} /></div>
+                <div style={{ flex: 1 }}>
+                  <ErrorBoundary>
+                    <Dashboard session={session} onLogout={() => setSession(null)} />
+                  </ErrorBoundary>
+                </div>
                 <VersionFooter />
               </div>
             )

@@ -3,7 +3,8 @@ import { apiUpdateProfileMe, apiUpdatePassword } from './api'
 import { isPushSupported, isIos, isStandalone, requestPermissionAndSubscribe, unsubscribe, getCurrentPushState, getLastPushError } from './pushNotifications'
 
 export default function UserSettings({ session, profile, onUpdate, transactions = [] }) {
-  const [username, setUsername] = useState(profile?.username || '')
+  const safeTransactions = Array.isArray(transactions) ? transactions : []
+  const [username, setUsername] = useState(profile?.username ?? '')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [pushStatus, setPushStatus] = useState(null)
@@ -151,44 +152,44 @@ export default function UserSettings({ session, profile, onUpdate, transactions 
       <div style={cardStyle}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
           <h3 style={cardTitleStyle}>📜 Letzte Buchungen</h3>
-          <span style={countBadgeStyle}>{transactions.length}</span>
+          <span style={countBadgeStyle}>{safeTransactions.length}</span>
         </div>
 
         <div style={historyContainerStyle}>
-          {transactions.length === 0 ? (
+          {safeTransactions.length === 0 ? (
             <div style={emptyStateStyle}>
               <span style={{ fontSize: '2rem', display: 'block', marginBottom: '10px' }}>☕</span>
               Noch keine Buchungen vorhanden.
             </div>
           ) : (
-            transactions.map((t) => (
+            safeTransactions.map((t) => {
+              const amt = Number(t.amount) || 0
+              const d = t.created_at ? new Date(t.created_at) : null
+              const dateStr = d && !Number.isNaN(d.getTime()) ? d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'
+              return (
               <div key={t.id} style={transactionItemStyle}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <div style={{
                     ...iconBoxStyle,
-                    backgroundColor: t.amount < 0 ? '#fff1f2' : '#f0fdf4',
-                    color: t.amount < 0 ? '#ef4444' : '#10b981'
+                    backgroundColor: amt < 0 ? '#fff1f2' : '#f0fdf4',
+                    color: amt < 0 ? '#ef4444' : '#10b981'
                   }}>
-                    {t.amount < 0 ? '▼' : '▲'}
+                    {amt < 0 ? '▼' : '▲'}
                   </div>
                   <div>
                     <div style={descStyle}>{t.description || 'Systembuchung'}</div>
-                    <div style={dateStyle}>
-                      {new Date(t.created_at).toLocaleDateString('de-DE', { 
-                        day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' 
-                      })}
-                    </div>
+                    <div style={dateStyle}>{dateStr}</div>
                   </div>
                 </div>
                 <div style={{ 
                   fontWeight: '800', 
                   fontSize: '0.95rem',
-                  color: t.amount < 0 ? '#1e293b' : '#10b981'
+                  color: amt < 0 ? '#1e293b' : '#10b981'
                 }}>
-                  {t.amount < 0 ? '' : '+'}{t.amount.toFixed(2)} €
+                  {amt < 0 ? '' : '+'}{(amt).toFixed(2)} €
                 </div>
               </div>
-            ))
+            )})
           )}
         </div>
       </div>
