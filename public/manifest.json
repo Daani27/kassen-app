@@ -3,13 +3,13 @@
   "name": "Kassen App",
   "icons": [
     {
-      "src": "/favicon.svg?v=2",
+      "src": "/favicon.svg?v=4",
       "type": "image/svg+xml",
       "sizes": "any",
       "purpose": "any"
     },
     {
-      "src": "/favicon.svg?v=2",
+      "src": "/favicon.svg?v=4",
       "type": "image/svg+xml",
       "sizes": "any",
       "purpose": "maskable"
