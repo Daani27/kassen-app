@@ -140,7 +140,8 @@ export default function Dashboard({ session, onLogout }) {
         const count = (meal.meal_participants || []).length
         const expenseData = await apiGetGlobalExpenses({ category: 'abendessen', shift_date: mealDate })
         const autoSum = (expenseData || []).reduce((acc, curr) => acc + Math.abs(Number(curr.amount)), 0) || 0
-        const currentCosts = (meal.total_cost && meal.total_cost > 0) ? meal.total_cost : autoSum
+        // Bei offener Mahlzeit immer Ausgaben-Summe für Preis pp (bleibt aktuell bei neuen Einträgen)
+        const currentCosts = (meal.status === 'open') ? autoSum : ((meal.total_cost && meal.total_cost > 0) ? meal.total_cost : autoSum)
         const rawPerPerson = count > 0 ? currentCosts / count : 0
         let perPerson = count > 0 ? Math.ceil(rawPerPerson * 2) / 2 : 0
         if (Math.round(rawPerPerson * 100) % 50 === 0) perPerson += 0.5

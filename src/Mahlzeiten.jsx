@@ -68,7 +68,10 @@ export default function Mahlzeiten({ session, onUpdate }) {
         const mealDate = String(meal.meal_date).slice(0, 10)
         const expenses = await apiGetGlobalExpenses({ category: 'abendessen', shift_date: mealDate })
         const sum = (expenses || []).reduce((acc, curr) => acc + Math.abs(Number(curr.amount)), 0)
-        if (meal.total_cost != null && meal.total_cost > 0) {
+        // Bei offener Mahlzeit immer Summe der Abendessen-Ausgaben als Kostenbasis (wird bei neuer Ausgabe aktuell)
+        if (meal.status === 'open') {
+          setTotalCost(sum.toString())
+        } else if (meal.total_cost != null && meal.total_cost > 0) {
           setTotalCost(Number(meal.total_cost).toString())
         } else {
           setTotalCost(sum.toString())

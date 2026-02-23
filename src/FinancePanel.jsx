@@ -10,7 +10,7 @@ import {
 } from './api'
 import { sendPushToAll } from './pushNotifications'
 
-export default function FinancePanel({ session, isAdmin }) {
+export default function FinancePanel({ session, isAdmin, onUpdate }) {
   const [totalPool, setTotalPool] = useState(0)
   const [amount, setAmount] = useState('')
   const [desc, setDesc] = useState('')
@@ -160,6 +160,7 @@ export default function FinancePanel({ session, isAdmin }) {
       setAmount('')
       setDesc('')
       await fetchFinanceData()
+      if (category === 'abendessen' && onUpdate) onUpdate()
     } catch (err) { alert(err.data?.error || err.message) } finally { setLoading(false) }
   }
 
