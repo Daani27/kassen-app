@@ -30,12 +30,23 @@ const TARGET_URL = process.env.DATABASE_URL
 const SUPABASE_URL = process.env.SUPABASE_DATABASE_URL
 const supabasePasswordOnly = process.env.SUPABASE_DB_PASSWORD
 const supabaseHost = process.env.SUPABASE_DB_HOST
+const supabasePoolerHost = process.env.SUPABASE_DB_POOLER_HOST
+const supabaseProjectRef = process.env.SUPABASE_DB_PROJECT_REF
 
 const hasFullUrl = !!SUPABASE_URL
 const hasHostAndPassword = !!(supabaseHost && supabasePasswordOnly)
-const resolvedSupabaseUrl = hasHostAndPassword
-  ? `postgresql://postgres:${encodeURIComponent(String(supabasePasswordOnly).trim())}@${String(supabaseHost).trim().replace(/^@/, '')}:5432/postgres`
-  : SUPABASE_URL
+const usePooler = !!supabasePoolerHost && !!supabasePasswordOnly
+const projectRef = supabaseProjectRef || (supabaseHost && supabaseHost.replace(/^db\.|\.supabase\.co$/g, '').trim()) || ''
+
+let resolvedSupabaseUrl = SUPABASE_URL
+if (usePooler && projectRef) {
+  const user = `postgres.${projectRef}`
+  const host = String(supabasePoolerHost).trim()
+  const port = process.env.SUPABASE_DB_POOLER_PORT || '5432'
+  resolvedSupabaseUrl = `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(String(supabasePasswordOnly).trim())}@${host}:${port}/postgres`
+} else if (hasHostAndPassword) {
+  resolvedSupabaseUrl = `postgresql://postgres:${encodeURIComponent(String(supabasePasswordOnly).trim())}@${String(supabaseHost).trim().replace(/^@/, '')}:5432/postgres`
+}
 
 if (!TARGET_URL) {
   console.error('Fehler: DATABASE_URL fehlt. Gesetzte .env:', serverEnv)
@@ -45,7 +56,8 @@ if (!resolvedSupabaseUrl) {
   console.error(
     'Fehler: Supabase-Zugang fehlt. In dieser .env eine der Varianten eintragen:\n  ' + serverEnv + '\n' +
     '  A) SUPABASE_DATABASE_URL=postgresql://postgres:PASSWORT@db.xxxx.supabase.co:5432/postgres\n' +
-    '  B) SUPABASE_DB_HOST=db.xxxx.supabase.co  und  SUPABASE_DB_PASSWORD=dein_passwort'
+    '  B) SUPABASE_DB_HOST=db.xxxx.supabase.co  und  SUPABASE_DB_PASSWORD=dein_passwort\n' +
+    '  C) Pooler (falls Direct 28P01): SUPABASE_DB_POOLER_HOST, SUPABASE_DB_PROJECT_REF, SUPABASE_DB_PASSWORD'
   )
   process.exit(1)
 }
