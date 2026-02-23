@@ -7,7 +7,7 @@ import Dashboard from './Dashboard'
 import GastPage from './GastPage'
 import PwaInstallBanner from './PwaInstallBanner'
 
-const APP_VERSION = import.meta.env.PACKAGE_VERSION || '2.0.0'
+const APP_VERSION = import.meta.env.PACKAGE_VERSION || '3.0.0'
 
 function App() {
   const [session, setSession] = useState(null)
