@@ -72,11 +72,25 @@ if (!resolvedSupabaseUrl) {
   process.exit(1)
 }
 
-// Supabase erfordert SSL; pg verwendet sonst ggf. keine verschlüsselte Verbindung
+// ECONNREFUSED 0.0.0.0 = Host fehlt in der URL (z. B. nur SUPABASE_DB_PORT gesetzt, aber SUPABASE_DB_HOST leer)
+const urlHostMatch = resolvedSupabaseUrl.match(/@([^/]+?)(?::(\d+))?\//)
+const urlHost = urlHostMatch ? urlHostMatch[1].trim() : ''
+if (!urlHost || urlHost === ':' || !urlHost.includes('.')) {
+  console.error(
+    'Fehler: In der Supabase-URL fehlt der Host (Verbindung ging sonst zu localhost).\n' +
+    '  Gesetzte .env: ' + serverEnv + '\n' +
+    '  Entweder SUPABASE_DATABASE_URL mit voller URI setzen (z. B. postgresql://postgres:PASSWORT@db.xxxx.supabase.co:5432/postgres)\n' +
+    '  oder SUPABASE_DB_HOST=db.xxxx.supabase.co (nicht leer lassen, wenn SUPABASE_DB_PORT/SUPABASE_DB_PASSWORD gesetzt sind).'
+  )
+  process.exit(1)
+}
+
+// Supabase erfordert SSL. Bei "self-signed certificate in certificate chain" (z. B. Firmen-Proxy/DNS)
+// Zertifikatsprüfung lockern – nur für dieses Einmal-Import-Skript.
 const supabasePool = new Pool({
   connectionString: resolvedSupabaseUrl,
   max: 2,
-  ssl: resolvedSupabaseUrl.includes('supabase.co') ? { rejectUnauthorized: true } : false
+  ssl: resolvedSupabaseUrl.includes('supabase.co') ? { rejectUnauthorized: false } : false
 })
 const targetPool = new Pool({ connectionString: TARGET_URL, max: 2 })
 
