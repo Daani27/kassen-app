@@ -29,6 +29,31 @@ Diese Anleitung beschreibt das Deployment von **Frontend (PWA)** und **Backend (
 
 ---
 
+## 0. Automatische Installation (Debian)
+
+Auf einem **frischen Debian-Server** (z. B. Debian 12/13) kannst du alles in einem Durchlauf einrichten:
+
+1. Script auf den Server kopieren (oder Repo klonen).
+2. Als root ausführen: `sudo bash scripts/install-server.sh`
+3. Wenn nötig, die Abfragen beantworten: **Domain**, **DB-Passwort**, **JWT-Secret** (mind. 32 Zeichen). VAPID-Keys werden bei Bedarf automatisch erzeugt.
+
+Das Script installiert: **PostgreSQL**, **Node.js 20** (NodeSource), **Nginx**, **Certbot**, legt Datenbank und User an, führt das Schema aus, richtet **server/.env** und den **systemd**-Service ein, baut das Frontend und konfiguriert Nginx. Optional HTTPS mit Let’s Encrypt: vorher `export KASSE_INSTALL_HTTPS=1` setzen.
+
+**Umgebungsvariablen** (optional, sonst interaktiv):
+
+- `KASSE_DOMAIN` – Domain (z. B. `kasse.example.de`)
+- `KASSE_DB_PASSWORD` – Passwort für den DB-User `kasse_app`
+- `KASSE_JWT_SECRET` – mind. 32 Zeichen
+- `KASSE_VAPID_PUBLIC` / `KASSE_VAPID_PRIVATE` – leer lassen zum automatischen Erzeugen
+- `KASSE_GIT_REPO` – Repository-URL (Standard: GitHub kassen-app)
+- `KASSE_PROJECT_DIR` – Installationspfad (Standard: `/var/www/kassen-app`)
+- `KASSE_NGINX_ROOT` – Nginx Document Root (Standard: `/var/www/html`)
+- `KASSE_INSTALL_HTTPS=1` – Certbot nach der Installation ausführen
+
+Danach: In der App registrieren und den ersten Nutzer in der DB zum Admin machen (siehe Abschnitt 7 bzw. Doku zum Admin).
+
+---
+
 ## 1. PostgreSQL einrichten
 
 ### 1.1 Datenbank und Benutzer anlegen
