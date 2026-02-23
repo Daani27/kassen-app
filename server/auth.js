@@ -31,30 +31,50 @@ export async function checkPassword(password, hash) {
   return bcrypt.compare(password, hash)
 }
 
-/** Middleware: setzt req.user = { id, email, is_admin } oder 401 */
-export function requireAuth(req, res, next) {
-  const auth = req.headers.authorization
-  const token = auth?.startsWith('Bearer ') ? auth.slice(7) : null
-  if (!token) {
-    return res.status(401).json({ error: 'Nicht angemeldet' })
+/** Middleware: setzt req.user = { id, email, is_admin } oder 401. is_admin kommt aus der DB (aktuell). */
+export async function requireAuth(req, res, next) {
+  try {
+    const auth = req.headers.authorization
+    const token = auth?.startsWith('Bearer ') ? auth.slice(7) : null
+    if (!token) {
+      return res.status(401).json({ error: 'Nicht angemeldet' })
+    }
+    const decoded = verifyToken(token)
+    if (!decoded?.id) {
+      return res.status(401).json({ error: 'Ungültiger Token' })
+    }
+    const profile = await getProfileById(decoded.id)
+    req.user = {
+      id: decoded.id,
+      email: decoded.email,
+      is_admin: profile ? !!profile.is_admin : !!decoded.is_admin,
+    }
+    next()
+  } catch (err) {
+    next(err)
   }
-  const decoded = verifyToken(token)
-  if (!decoded?.id) {
-    return res.status(401).json({ error: 'Ungültiger Token' })
-  }
-  req.user = { id: decoded.id, email: decoded.email, is_admin: !!decoded.is_admin }
-  next()
 }
 
-/** Optional auth: setzt req.user wenn Token vorhanden */
-export function optionalAuth(req, res, next) {
-  const auth = req.headers.authorization
-  const token = auth?.startsWith('Bearer ') ? auth.slice(7) : null
-  if (token) {
-    const decoded = verifyToken(token)
-    if (decoded?.id) req.user = { id: decoded.id, email: decoded.email, is_admin: !!decoded.is_admin }
+/** Optional auth: setzt req.user wenn Token vorhanden. is_admin aus DB. */
+export async function optionalAuth(req, res, next) {
+  try {
+    const auth = req.headers.authorization
+    const token = auth?.startsWith('Bearer ') ? auth.slice(7) : null
+    if (token) {
+      const decoded = verifyToken(token)
+      if (decoded?.id) {
+        const profile = await getProfileById(decoded.id)
+        req.user = {
+          id: decoded.id,
+          email: decoded.email,
+          is_admin: profile ? !!profile.is_admin : !!decoded.is_admin,
+        }
+      }
+    }
+    next()
+  } catch (err) {
+    next(err)
   }
-  next()
 }
 
 export async function getProfileById(id) {

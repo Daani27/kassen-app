@@ -60,7 +60,21 @@ Falls `psql` nur als `postgres` läuft:
 sudo -u postgres psql -d kasse_db -f /var/www/kassen-app/server/schema.sql
 ```
 
-(Danach ggf. Rechte für `kasse_app` prüfen.)
+### 1.3 Rechte für den App-User (kasse_app)
+
+Die Tabellen werden oft als User `postgres` angelegt. Damit die API mit `kasse_app` (oder dem User aus `DATABASE_URL`) lesen und schreiben kann, Rechte setzen:
+
+```bash
+sudo -u postgres psql -d kasse_db << 'EOF'
+GRANT USAGE ON SCHEMA public TO kasse_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO kasse_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO kasse_app;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO kasse_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO kasse_app;
+EOF
+```
+
+Falls du einen anderen DB-User nutzt, `kasse_app` in den Befehlen durch diesen ersetzen.
 
 ---
 
