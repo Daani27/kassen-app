@@ -469,7 +469,41 @@ Certbot passt die Nginx-Konfiguration an und richtet SSL ein. Automatische Verl�
 
 ## 8. Updates deployen
 
-1. **Code aktualisieren** (z. B. `git pull` im Projektordner).
+### 8.1 Deploy-Skripte (empfohlen)
+
+Im Projekt liegen zwei Skripte, die **Backend** und **Frontend** nach `git pull` aktualisieren. Auf dem Server im Projektordner ausführen.
+
+**Backend aktualisieren** (Pull, `npm install` in `server/`, Neustart des API-Services):
+
+```bash
+cd /var/www/kassen-app
+bash scripts/deploy-backend.sh
+```
+
+- Standard-Service-Name: `kasse-api`. Anderer Service: `SERVICE_NAME=mein-api bash scripts/deploy-backend.sh`
+- Projektordner anders: `PROJECT_DIR=/pfad/zum/projekt bash scripts/deploy-backend.sh`
+
+**Frontend aktualisieren** (Pull, `npm install`, Build, Kopieren nach Nginx-Verzeichnis):
+
+```bash
+cd /var/www/kassen-app
+bash scripts/deploy-frontend.sh
+```
+
+- Standard-Ziel: `/var/www/html/kasse`. Anderes Ziel: `TARGET_DIR=/var/www/html bash scripts/deploy-frontend.sh`
+- Vorher: **.env** im Projektroot mit `VITE_API_URL` und `VITE_VAPID_PUBLIC_KEY` (wie bei Erst-Deploy)
+
+**Beides nacheinander** (z. B. nach einem Release):
+
+```bash
+cd /var/www/kassen-app
+bash scripts/deploy-backend.sh
+bash scripts/deploy-frontend.sh
+```
+
+### 8.2 Manuell (ohne Skripte)
+
+1. **Code:** `git pull` im Projektordner.
 2. **Backend:**  
    ```bash
    cd /var/www/kassen-app/server
@@ -477,20 +511,14 @@ Certbot passt die Nginx-Konfiguration an und richtet SSL ein. Automatische Verl�
    sudo systemctl restart kasse-api
    ```
 3. **Frontend:**  
-   - Sicherstellen, dass **.env** im Root z. B. weiterhin `VITE_API_URL=https://kasse.example.de` (oder leer für gleiche Domain) enthält.  
+   - **.env** im Root prüfen (`VITE_API_URL`, `VITE_VAPID_PUBLIC_KEY`).  
    - `npm run build`  
-   - `dist/*` wieder nach `/var/www/html/` (oder `/var/www/html/kasse/`) kopieren, z. B.:  
+   - Build nach Nginx kopieren, z. B.:  
      ```bash
-     sudo cp -r /var/www/kassen-app/dist/* /var/www/html/
-     sudo chown -R www-data:www-data /var/www/html
+     sudo cp -r /var/www/kassen-app/dist/* /var/www/html/kasse/
+     sudo chown -R www-data:www-data /var/www/html/kasse
      ```
-4. **Datenbank:** Nur bei neuen Migrationen (neue Tabellen/Spalten) die entsprechenden SQL-Skripte ausführen (z. B. aus `server/schema.sql` oder separaten Migrationsdateien).
-
-**Frontend in einem Befehl (auf dem Server):** Pull, Build und Kopieren mit Berechtigungen erledigt das Skript `scripts/deploy-frontend.sh`. Auf dem Server ausführen:
-   ```bash
-   cd /var/www/kassen-app && bash scripts/deploy-frontend.sh
-   ```
-   Zielordner ist standardmäßig `/var/www/html/kasse`; mit `TARGET_DIR=/var/www/html sudo -E bash scripts/deploy-frontend.sh` änderbar.
+4. **Datenbank:** Bei neuen Migrationen (Tabellen/Spalten) die SQL-Skripte ausführen (z. B. aus `supabase/migrations/` oder `server/schema.sql`).
 
 ---
 
