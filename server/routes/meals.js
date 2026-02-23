@@ -24,17 +24,15 @@ function mealWithParticipants(rows) {
 }
 
 export function registerMealsRoutes(app) {
-  /** GET /api/meals?status=open – aktive Mahlzeit mit Teilnehmern (auth) */
+  /** GET /api/meals?status=open – aktive Mahlzeit mit allen Teilnehmern (auth) */
   app.get('/api/meals', requireAuth, async (req, res) => {
     const status = req.query.status || 'open'
+    // Zuerst die eine offene Mahlzeit (nach neuestem), dann alle ihre Teilnehmer – sonst LIMIT 1 = nur 1 Teilnehmer
     const r = await query(
       `SELECT m.*, mp.user_id AS p_user_id, p.username AS p_username
-       FROM meals m
+       FROM (SELECT * FROM meals WHERE status = $1 ORDER BY created_at DESC LIMIT 1) m
        LEFT JOIN meal_participants mp ON mp.meal_id = m.id
-       LEFT JOIN profiles p ON p.id = mp.user_id
-       WHERE m.status = $1
-       ORDER BY m.created_at DESC
-       LIMIT 1`,
+       LEFT JOIN profiles p ON p.id = mp.user_id`,
       [status]
     )
     if (r.rows.length === 0) return res.json(null)
