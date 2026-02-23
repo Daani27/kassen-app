@@ -13,7 +13,7 @@ import {
 } from './api'
 import { sendPushToAll } from './pushNotifications'
 
-export default function Mahlzeiten({ session, onUpdate }) {
+export default function Mahlzeiten({ session, onUpdate, refreshKey }) {
   const [activeMeal, setActiveMeal] = useState(null)
   const [isJoined, setIsJoined] = useState(false)
   const [totalCost, setTotalCost] = useState('')
@@ -36,7 +36,7 @@ export default function Mahlzeiten({ session, onUpdate }) {
       checkAdminStatus();
       fetchActiveMeal();
     }
-  }, [session])
+  }, [session, refreshKey])
 
   useEffect(() => {
     if (isAdmin) fetchProfiles()

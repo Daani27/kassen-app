@@ -30,6 +30,7 @@ export default function Dashboard({ session, onLogout }) {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [mealInfo, setMealInfo] = useState({ count: 0, price: 0, date: null })
+  const [mealRefreshKey, setMealRefreshKey] = useState(0)
   const [userTransactions, setUserTransactions] = useState([])
   const [pullY, setPullY] = useState(0)
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -285,7 +286,7 @@ export default function Dashboard({ session, onLogout }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <Strichliste session={session} onUpdate={() => { fetchUserData(); fetchMealInfo(); }} isAdmin={profile?.is_admin} />
               <Fruehstueck session={session} onUpdate={fetchUserData} isAdmin={profile?.is_admin} />
-              <Mahlzeiten session={session} onUpdate={() => { fetchUserData(); fetchMealInfo(); }} isAdmin={profile?.is_admin} />
+              <Mahlzeiten session={session} onUpdate={() => { fetchUserData(); fetchMealInfo(); }} refreshKey={mealRefreshKey} isAdmin={profile?.is_admin} />
             </div>
           </div>
         )}
@@ -294,7 +295,7 @@ export default function Dashboard({ session, onLogout }) {
         <div style={{ animation: 'fadeIn 0.3s ease-out' }}>
           {activeTab === 'settings' && <UserSettings session={session} profile={profile} onUpdate={fetchUserData} transactions={userTransactions} />}
           {activeTab === 'users' && profile?.is_admin && <UserManagement />}
-          {activeTab === 'finance' && profile?.is_admin && <FinancePanel session={session} isAdmin={profile?.is_admin} onUpdate={() => { fetchUserData(); fetchMealInfo(); }} />}
+          {activeTab === 'finance' && profile?.is_admin && <FinancePanel session={session} isAdmin={profile?.is_admin} onUpdate={() => { fetchUserData(); fetchMealInfo(); setMealRefreshKey(k => k + 1); }} />}
           {activeTab === 'stats' && profile?.is_admin && <StatsPanel />}
           {activeTab === 'admin' && profile?.is_admin && <AdminPanel session={session} />}
         </div>
