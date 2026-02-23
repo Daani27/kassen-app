@@ -12,6 +12,7 @@ import {
   apiDeleteMeal,
 } from './api'
 import { sendPushToAll } from './pushNotifications'
+import { cardStyle as themeCard, sectionTitleStyle as themeTitle, sectionSubtitleStyle as themeSubtitle, emptyStateStyle as themeEmpty } from './uiTheme'
 
 export default function Mahlzeiten({ session, onUpdate, refreshKey }) {
   const [activeMeal, setActiveMeal] = useState(null)
@@ -226,16 +227,16 @@ export default function Mahlzeiten({ session, onUpdate, refreshKey }) {
     } catch (e) { alert('Fehler: ' + (e.data?.error || e.message)) }
   }
 
-  if (loading) return <div style={cardStyle}>Lade Mahlzeiten...</div>
+  if (loading) return <div style={themeCard}>Lade Mahlzeiten...</div>
   const isBreakfast = activeMeal?.title?.toLowerCase().includes('frühstück');
   const canLeave = isAdmin || !isBreakfast || isBeforeDeadline();
 
   return (
-    <div style={cardStyle}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+    <div style={themeCard}>
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <div>
-          <h3 style={titleStyle}>🍴 Mahlzeiten</h3>
-          <p style={subtitleStyle}>Gemeinsames Essen planen</p>
+          <h3 style={themeTitle}>🍴 Mahlzeiten</h3>
+          <p style={themeSubtitle}>Gemeinsames Essen planen</p>
         </div>
         {isAdmin && !activeMeal && (
           <button onClick={createMeal} style={createBtnStyle}>Neu</button>
@@ -243,7 +244,7 @@ export default function Mahlzeiten({ session, onUpdate, refreshKey }) {
       </header>
 
       {!activeMeal ? (
-        <div style={emptyStateStyle}>Aktuell ist keine Liste offen.</div>
+        <div style={themeEmpty}>Aktuell ist keine Liste offen.</div>
       ) : (
         <div>
           <div style={mealHeaderStyle}>
@@ -351,11 +352,7 @@ export default function Mahlzeiten({ session, onUpdate, refreshKey }) {
   )
 }
 
-// STYLES (Unverändert)
-const cardStyle = { backgroundColor: '#fff', padding: '24px', borderRadius: '24px', border: '1px solid #f1f5f9', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }
-const titleStyle = { margin: 0, fontSize: '1.1rem', fontWeight: '800', color: '#0f172a' }
-const subtitleStyle = { margin: 0, fontSize: '0.75rem', color: '#94a3b8' }
-const emptyStateStyle = { textAlign: 'center', padding: '20px', color: '#94a3b8', fontSize: '0.9rem', backgroundColor: '#f8fafc', borderRadius: '16px', border: '2px dashed #e2e8f0' }
+// STYLES
 const mealHeaderStyle = { display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }
 const mealTitleStyle = { fontSize: '1.1rem', fontWeight: '800', color: '#1e293b', flex: 1 }
 const mealBadgeStyle = { backgroundColor: '#dcfce7', color: '#16a34a', padding: '2px 8px', borderRadius: '6px', fontSize: '0.6rem', fontWeight: '900' }

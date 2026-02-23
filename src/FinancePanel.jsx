@@ -9,6 +9,7 @@ import {
   apiInsertGlobalExpense,
 } from './api'
 import { sendPushToAll } from './pushNotifications'
+import { SECTION_GAP, cardStyle as themeCard, sectionTitleStyle as themeSectionTitle, labelStyle as themeLabel, inputStyle as themeInput } from './uiTheme'
 
 export default function FinancePanel({ session, isAdmin, onUpdate }) {
   const [totalPool, setTotalPool] = useState(0)
@@ -271,16 +272,15 @@ export default function FinancePanel({ session, isAdmin, onUpdate }) {
     : recentHistory
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', paddingBottom: '30px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: SECTION_GAP }}>
 
-      {/* KASSENSTAND KARTEN */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-        <div style={cardStyle}>
-          <small style={labelStyle}>Barbestand</small>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div style={themeCard}>
+          <small style={themeLabel}>Barbestand</small>
           <h2 style={{ margin: '4px 0 0 0', fontSize: '1.4rem', color: '#111827' }}>{formatEuro(totalPool)}</h2>
         </div>
-        <div style={{ ...cardStyle, background: 'linear-gradient(135deg, #fff 0%, #fff7ed 100%)', borderLeft: '4px solid #f97316' }}>
-          <small style={{ ...labelStyle, color: '#f97316' }}>Essen Heute</small>
+        <div style={{ ...themeCard, background: 'linear-gradient(135deg, #fff 0%, #fff7ed 100%)', borderLeft: '4px solid #f97316' }}>
+          <small style={{ ...themeLabel, color: '#f97316' }}>Essen Heute</small>
           <h2 style={{ margin: '4px 0 0 0', fontSize: '1.4rem', color: '#f97316' }}>{formatEuro(dinnerTotal)}</h2>
         </div>
       </div>
@@ -289,15 +289,14 @@ export default function FinancePanel({ session, isAdmin, onUpdate }) {
         📢 Kasse ist offen (Push-Ankündigung)
       </button>
 
-      {/* AUSGABE BUCHEN */}
-      <div style={cardStyle}>
-        <h3 style={sectionTitleStyle}>Neue Ausgabe</h3>
+      <div style={themeCard}>
+        <h3 style={{ ...themeSectionTitle, marginBottom: 12 }}>Neue Ausgabe</h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <div style={{ position: 'relative' }}>
             <span style={inputIconStyle}>€</span>
-            <input type="text" placeholder="0,00" value={amount} onChange={e => setAmount(e.target.value)} style={inputStyleWithIcon} />
+            <input type="text" placeholder="0,00" value={amount} onChange={e => setAmount(e.target.value)} style={{ ...themeInput, paddingLeft: 36 }} />
           </div>
-          <input type="text" placeholder="Beschreibung (optional)" value={desc} onChange={e => setDesc(e.target.value)} style={inputStyle} />
+          <input type="text" placeholder="Beschreibung (optional)" value={desc} onChange={e => setDesc(e.target.value)} style={themeInput} />
 
           <div style={{ display: 'flex', gap: '8px', marginTop: '2px' }}>
             <button onClick={() => addExpense('abendessen')} disabled={loading} style={primaryBtnStyle}>
@@ -314,9 +313,8 @@ export default function FinancePanel({ session, isAdmin, onUpdate }) {
         </div>
       </div>
 
-      {/* AUSGABE FÜR PERSON (Kasse + Konto abbuchen) */}
-      <div style={{ ...cardStyle, borderLeft: '4px solid #8b5cf6' }}>
-        <h3 style={sectionTitleStyle}>Ausgabe für Person</h3>
+      <div style={{ ...themeCard, borderLeft: '4px solid #8b5cf6' }}>
+        <h3 style={{ ...themeSectionTitle, marginBottom: 8 }}>Ausgabe für Person</h3>
         <p style={{ margin: '0 0 8px 0', fontSize: '0.8rem', color: '#6b7280' }}>
           Geld aus der Kasse für jemanden ausgegeben (z. B. mitgebracht) – bucht vom Konto der Person und vom Barbestand ab.
         </p>
@@ -324,7 +322,7 @@ export default function FinancePanel({ session, isAdmin, onUpdate }) {
           <select
             value={personExpenseUserId}
             onChange={e => setPersonExpenseUserId(e.target.value)}
-            style={inputStyle}
+            style={themeInput}
           >
             <option value="">Person wählen...</option>
             {profilesList.map(p => (
@@ -358,21 +356,20 @@ export default function FinancePanel({ session, isAdmin, onUpdate }) {
         </div>
       </div>
 
-      {/* VERLAUF */}
-      <div style={cardStyle}>
-        <h3 style={sectionTitleStyle}>Transaktionsverlauf</h3>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '10px' }}>
+      <div style={themeCard}>
+        <h3 style={{ ...themeSectionTitle, marginBottom: 12 }}>Transaktionsverlauf</h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
           <input
             type="text"
             placeholder="Suche (Beschreibung, Name…)"
             value={searchText}
             onChange={e => setSearchText(e.target.value)}
-            style={inputStyle}
+            style={themeInput}
           />
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={{ ...inputStyle, flex: 1, minWidth: '120px' }} />
-            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={{ ...inputStyle, flex: 1, minWidth: '120px' }} />
-            <select value={filterAmount} onChange={e => setFilterAmount(e.target.value)} style={{ ...inputStyle, width: '100px' }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={{ ...themeInput, flex: 1, minWidth: 120 }} />
+            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={{ ...themeInput, flex: 1, minWidth: 120 }} />
+            <select value={filterAmount} onChange={e => setFilterAmount(e.target.value)} style={{ ...themeInput, width: 100 }}>
               <option value="">Alle Beträge</option>
               <option value="pos">Nur Einzahlungen</option>
               <option value="neg">Nur Ausgaben</option>
@@ -450,13 +447,7 @@ export default function FinancePanel({ session, isAdmin, onUpdate }) {
   )
 }
 
-// STYLES
-const cardStyle = { backgroundColor: 'white', padding: '16px', borderRadius: '16px', border: '1px solid #f3f4f6', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }
-const sectionTitleStyle = { margin: '0 0 12px 0', fontSize: '0.95rem', fontWeight: '800', color: '#111827' }
-const labelStyle = { color: '#94a3b8', fontSize: '0.65rem', textTransform: 'uppercase', fontWeight: '700', letterSpacing: '0.5px' }
-const inputStyle = { width: '100%', padding: '8px 12px', borderRadius: '10px', border: '1px solid #e5e7eb', fontSize: '0.9rem', backgroundColor: '#f9fafb', transition: 'border 0.2s', boxSizing: 'border-box' }
-const inputStyleWithIcon = { ...inputStyle, paddingLeft: '32px' }
-const inputIconStyle = { position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', fontWeight: 'bold', fontSize: '0.9rem' }
+const inputIconStyle = { position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', fontWeight: 'bold', fontSize: '0.9rem' }
 const primaryBtnStyle = { flex: 1, padding: '10px 12px', color: 'white', backgroundColor: '#f97316', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.9rem', boxShadow: '0 4px 10px rgba(249, 115, 22, 0.2)' }
 const secondaryBtnStyle = { flex: 1, padding: '10px 12px', color: '#374151', backgroundColor: '#f3f4f6', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.9rem' }
 const notifyBtnStyle = { width: '100%', padding: '10px', backgroundColor: '#0088cc', color: 'white', border: 'none', borderRadius: '10px', fontWeight: '800', cursor: 'pointer', fontSize: '0.85rem' }

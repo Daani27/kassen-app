@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { apiGetProfileMe, apiGetTransactions, apiGetActiveMeal, apiGetGlobalExpenses, apiUpdateProfileVersion, apiLogout } from './api'
+import { SECTION_GAP, tabContentStyle } from './uiTheme'
 
 const APP_VERSION = typeof import.meta.env?.PACKAGE_VERSION === 'string' ? import.meta.env.PACKAGE_VERSION : ''
 import Strichliste from './Strichliste'
@@ -288,7 +289,7 @@ export default function Dashboard({ session, onLogout }) {
               )}
             </header>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: SECTION_GAP }}>
               <Strichliste session={session} onUpdate={() => { fetchUserData(); fetchMealInfo(); }} isAdmin={profile?.is_admin} />
               <Fruehstueck session={session} onUpdate={fetchUserData} isAdmin={profile?.is_admin} />
               <Mahlzeiten session={session} onUpdate={() => { fetchUserData(); fetchMealInfo(); }} refreshKey={mealRefreshKey} isAdmin={profile?.is_admin} />
@@ -296,8 +297,8 @@ export default function Dashboard({ session, onLogout }) {
           </div>
         )}
 
-        {/* Tab-Inhalte */}
-        <div style={{ animation: 'fadeIn 0.3s ease-out' }}>
+        {/* Tab-Inhalte – einheitlicher Abstand und Aufbau */}
+        <div style={{ ...tabContentStyle, animation: 'fadeIn 0.3s ease-out', display: 'flex', flexDirection: 'column', gap: SECTION_GAP }}>
           {activeTab === 'settings' && <UserSettings session={session} profile={profile} onUpdate={fetchUserData} transactions={userTransactions} />}
           {activeTab === 'users' && profile?.is_admin && <UserManagement />}
           {activeTab === 'finance' && profile?.is_admin && <FinancePanel session={session} isAdmin={profile?.is_admin} onUpdate={() => { fetchUserData(); fetchMealInfo(); setMealRefreshKey(k => k + 1); }} />}
@@ -305,7 +306,7 @@ export default function Dashboard({ session, onLogout }) {
           {activeTab === 'admin' && profile?.is_admin && <AdminPanel session={session} />}
         </div>
 
-        <button onClick={() => { apiLogout(); if (onLogout) onLogout(); }} style={{ marginTop: '48px', width: '100%', color: '#9ca3af', background: 'none', border: 'none', textDecoration: 'none', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '500' }}>
+        <button onClick={() => { apiLogout(); if (onLogout) onLogout(); }} style={{ marginTop: 40, paddingTop: 16, borderTop: '1px solid #e5e7eb', width: '100%', color: '#9ca3af', background: 'none', border: 'none', borderLeft: 'none', borderRight: 'none', borderBottom: 'none', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 500 }}>
           🚪 Konto abmelden
         </button>
       </div>

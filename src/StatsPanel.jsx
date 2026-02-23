@@ -3,6 +3,7 @@ import { apiGetTransactions, apiGetGlobalExpenses, apiGetProfiles } from './api'
 import { useBranding } from './BrandingContext'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import { SECTION_GAP, cardStyle as themeCard, sectionTitleStyle as themeSectionTitle, labelStyle as themeLabel, inputStyle as themeInput } from './uiTheme'
 
 export default function StatisticsPanel() {
   const [startDate, setStartDate] = useState(
@@ -159,18 +160,17 @@ export default function StatisticsPanel() {
   }
 
   return (
-    <div style={containerStyle}>
-      {/* Zeitraum & Filter */}
-      <div style={cardStyle}>
-        <h4 style={cardTitleStyle}>📅 Zeitraum & Export</h4>
-        <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: SECTION_GAP }}>
+      <div style={themeCard}>
+        <h3 style={{ ...themeSectionTitle, marginBottom: 16 }}>📅 Zeitraum & Export</h3>
+        <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
           <div style={{ flex: 1 }}>
-            <label style={miniLabelStyle}>Von</label>
-            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} style={inputStyle} />
+            <label style={themeLabel}>Von</label>
+            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} style={themeInput} />
           </div>
           <div style={{ flex: 1 }}>
-            <label style={miniLabelStyle}>Bis</label>
-            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} style={inputStyle} />
+            <label style={themeLabel}>Bis</label>
+            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} style={themeInput} />
           </div>
         </div>
         <button onClick={exportPDF} style={pdfBtnStyle} disabled={data.loading}>
@@ -178,21 +178,19 @@ export default function StatisticsPanel() {
         </button>
       </div>
 
-      {/* Summary Grid */}
-      <div style={summaryGridStyle}>
-        <div style={cardStyle}>
-          <small style={labelStyle}>Bar-Anfang</small>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div style={themeCard}>
+          <small style={themeLabel}>Bar-Anfang</small>
           <div style={amountStyle}>{(Number(data.startBalance) || 0).toFixed(2)} €</div>
         </div>
-        <div style={{ ...cardStyle, borderLeft: '4px solid #10b981' }}>
-          <small style={labelStyle}>Bar-Ende</small>
+        <div style={{ ...themeCard, borderLeft: '4px solid #10b981' }}>
+          <small style={themeLabel}>Bar-Ende</small>
           <div style={{ ...amountStyle, color: '#10b981' }}>{(Number(data.endBalance) || 0).toFixed(2)} €</div>
         </div>
       </div>
 
-      {/* Transactions List */}
-      <div style={cardStyle}>
-        <h4 style={cardTitleStyle}>Transaktionsverlauf</h4>
+      <div style={themeCard}>
+        <h3 style={{ ...themeSectionTitle, marginBottom: 16 }}>Transaktionsverlauf</h3>
         <div style={scrollAreaStyle}>
           {data.transactionList.length === 0 ? (
             <div style={emptyTextStyle}>Keine Buchungen im gewählten Zeitraum.</div>
@@ -232,16 +230,8 @@ export default function StatisticsPanel() {
   )
 }
 
-// STYLES
-const containerStyle = { display: 'flex', flexDirection: 'column', gap: '20px' }
-const cardStyle = { backgroundColor: '#fff', padding: '20px', borderRadius: '20px', border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }
-const cardTitleStyle = { marginTop: 0, marginBottom: '15px', fontSize: '0.9rem', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }
-const inputStyle = { width: '100%', padding: '10px', borderRadius: '10px', border: '1px solid #e2e8f0', backgroundColor: '#f8fafc', fontSize: '0.9rem' }
-const miniLabelStyle = { fontSize: '0.65rem', fontWeight: '800', color: '#94a3b8', marginBottom: '4px', display: 'block' }
-const pdfBtnStyle = { width: '100%', padding: '14px', backgroundColor: '#0f172a', color: 'white', border: 'none', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold', transition: 'all 0.2s' }
-const summaryGridStyle = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }
-const labelStyle = { color: '#94a3b8', fontSize: '0.65rem', textTransform: 'uppercase', fontWeight: '800' }
-const amountStyle = { margin: '5px 0 0 0', fontSize: '1.4rem', fontWeight: '900', color: '#1e293b' }
+const pdfBtnStyle = { width: '100%', padding: 14, backgroundColor: '#111827', color: 'white', border: 'none', borderRadius: 12, cursor: 'pointer', fontWeight: 'bold' }
+const amountStyle = { margin: '6px 0 0 0', fontSize: '1.4rem', fontWeight: 900, color: '#1e293b' }
 const scrollAreaStyle = { maxHeight: '400px', overflowY: 'auto', paddingRight: '5px' }
 const listRowStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #f8fafc' }
 const emptyTextStyle = { textAlign: 'center', padding: '30px', color: '#cbd5e1', fontSize: '0.9rem' }

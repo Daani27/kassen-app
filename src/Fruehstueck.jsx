@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { apiGetProfiles, apiGetFruehstueckOrder, apiUpsertFruehstueckOrder } from './api'
+import { cardStyle as themeCard, sectionTitleStyle as themeTitle, sectionSubtitleStyle as themeSubtitle, labelStyle as themeLabel, selectStyle as themeSelect } from './uiTheme'
 
 const SAVE_DEBOUNCE_MS = 500
 const SAVE_DEBOUNCE_MS_IOS = 900
@@ -155,19 +156,18 @@ export default function Fruehstueck({ session, isAdmin, onUpdate }) {
   const isExternal = isAdmin && targetUserId !== session?.user?.id;
 
   return (
-    <div style={{...containerStyle, borderColor: isExternal ? '#3b82f6' : '#f3f4f6'}}>
-      {/* Header */}
-      <div style={{ marginBottom: '20px' }}>
+    <div style={{ ...themeCard, borderWidth: 2, borderColor: isExternal ? '#3b82f6' : '#e5e7eb' }}>
+      <div style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <h3 style={titleStyle}>☕ Frühstück</h3>
-            <p style={{ margin: 0, fontSize: '0.75rem', color: '#9ca3af' }}>Bestellung für heute</p>
+            <h3 style={themeTitle}>☕ Frühstück</h3>
+            <p style={themeSubtitle}>Bestellung für heute</p>
           </div>
           <div style={{
             fontSize: '0.65rem',
             padding: '6px 10px',
-            borderRadius: '10px',
-            fontWeight: '800',
+            borderRadius: 10,
+            fontWeight: 800,
             backgroundColor: isLocked ? '#fee2e2' : '#dcfce7',
             color: isLocked ? '#ef4444' : '#10b981',
           }}>
@@ -175,14 +175,13 @@ export default function Fruehstueck({ session, isAdmin, onUpdate }) {
           </div>
         </div>
 
-        {/* ADMIN USER-AUSWAHL */}
         {isAdmin && (
           <div style={adminBoxStyle}>
-            <label style={adminLabelStyle}>🎯 Bestellung für:</label>
+            <label style={themeLabel}>🎯 Bestellung für</label>
             <select 
               value={targetUserId} 
               onChange={(e) => setTargetUserId(e.target.value)}
-              style={selectStyle}
+              style={themeSelect}
             >
               <option value={session?.user?.id}>-- Mich selbst --</option>
               {profiles.filter(p => p.id !== session?.user?.id).map(p => (
@@ -231,12 +230,7 @@ export default function Fruehstueck({ session, isAdmin, onUpdate }) {
   )
 }
 
-// STYLES
-const containerStyle = { padding: '24px', backgroundColor: '#fff', borderRadius: '24px', border: '1px solid', transition: 'all 0.2s' }
-const titleStyle = { margin: 0, fontSize: '1.1rem', fontWeight: '800', color: '#111827' }
-const adminBoxStyle = { marginTop: '16px', padding: '12px', backgroundColor: '#f8fafc', borderRadius: '16px', border: '1px solid #e2e8f0' }
-const adminLabelStyle = { fontSize: '0.65rem', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }
-const selectStyle = { width: '100%', padding: '10px', borderRadius: '10px', border: '1px solid #cbd5e1', backgroundColor: '#fff', fontSize: '0.9rem', fontWeight: '600' }
+const adminBoxStyle = { marginTop: 16, padding: 14, backgroundColor: '#f8fafc', borderRadius: 14, border: '1px solid #e5e7eb' }
 const rowStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', borderRadius: '20px', transition: 'all 0.2s' }
 const itemTitleStyle = { fontWeight: '700', fontSize: '0.9rem', color: '#374151' }
 const priceStyle = { fontSize: '0.75rem', color: '#9ca3af', fontWeight: '500' }

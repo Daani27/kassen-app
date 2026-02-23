@@ -16,6 +16,7 @@ import {
 } from './api'
 import { useBranding } from './BrandingContext'
 import { sendPushToAll } from './pushNotifications'
+import { SECTION_GAP, cardStyle as themeCard } from './uiTheme'
 
 export default function AdminPanel({ session }) {
   const [users, setUsers] = useState([])
@@ -276,10 +277,9 @@ export default function AdminPanel({ session }) {
   if (loading) return <p style={{ padding: '24px', textAlign: 'center', color: '#6b7280' }}>Lade Admin-Daten...</p>
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', paddingBottom: '40px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: SECTION_GAP }}>
 
-      {/* RUF-FUNKTIONEN (immer verfügbar) */}
-      <div style={{ ...cardStyle, borderLeft: '6px solid #f59e0b', background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)' }}>
+      <div style={{ ...themeCard, borderLeft: '6px solid #f59e0b', background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)' }}>
         <h3 style={{ margin: '0 0 8px 0', fontSize: '1rem' }}>🔔 Ruf-Funktionen</h3>
         {openMealTitle && <p style={{ margin: 0, fontSize: '0.8rem', color: '#92400e' }}>Offene Mahlzeit: {openMealTitle}</p>}
         {!openMealTitle && <p style={{ margin: 0, fontSize: '0.8rem', color: '#b45309' }}>Keine offene Mahlzeit – Push geht mit „Essen“ als Titel.</p>}
@@ -293,8 +293,7 @@ export default function AdminPanel({ session }) {
         </div>
       </div>
 
-      {/* GAST ANLEGEN SEKTION */}
-      <div style={{ ...cardStyle, borderLeft: '6px solid #6366f1' }}>
+      <div style={{ ...themeCard, borderLeft: '6px solid #6366f1' }}>
         <h3 style={{ margin: '0 0 10px 0', fontSize: '1rem' }}>👤 Gast hinzufügen</h3>
         <form onSubmit={handleCreateGuest} style={{ display: 'flex', gap: '10px' }}>
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '0 12px' }}>
@@ -313,8 +312,7 @@ export default function AdminPanel({ session }) {
         </form>
       </div>
 
-      {/* SNACKS & GETRÄNKE (Produkte für Strichliste) */}
-      <div style={{ ...cardStyle, borderLeft: '6px solid #f59e0b' }}>
+      <div style={{ ...themeCard, borderLeft: '6px solid #f59e0b' }}>
         <h3 style={{ margin: '0 0 12px 0', fontSize: '1rem' }}>🥤 Snacks & Getränke</h3>
         <p style={{ margin: '0 0 12px 0', fontSize: '0.8rem', color: '#6b7280' }}>
           Produkte für die Strichliste. Inaktive erscheinen nicht mehr in der Auswahl.
@@ -399,8 +397,7 @@ export default function AdminPanel({ session }) {
         {products.length === 0 && <p style={{ margin: '12px 0 0 0', fontSize: '0.85rem', color: '#9ca3af' }}>Noch keine Produkte. Lege oben ein neues an.</p>}
       </div>
 
-      {/* FRÜHSTÜCKS-CONTROL */}
-      <div style={{ ...cardStyle, background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)', border: '1px solid #bae6fd' }}>
+      <div style={{ ...themeCard, background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)', border: '1px solid #bae6fd' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
           <span style={{ fontSize: '1.5rem' }}>🥖</span>
           <h3 style={{ margin: 0, color: '#0369a1', fontSize: '1.1rem' }}>Einkaufsliste Heute</h3>
@@ -417,8 +414,7 @@ export default function AdminPanel({ session }) {
         </div>
       </div>
 
-      {/* REGISTRATION TOGGLE */}
-      <div style={{ ...cardStyle, borderLeft: `6px solid ${regEnabled ? '#10b981' : '#ef4444'}` }}>
+      <div style={{ ...themeCard, borderLeft: `6px solid ${regEnabled ? '#10b981' : '#ef4444'}` }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <h3 style={{ margin: 0, fontSize: '1rem' }}>Registrierung</h3>
@@ -436,8 +432,7 @@ export default function AdminPanel({ session }) {
         </div>
       </div>
 
-      {/* BRANDING / APP-NAME (generisch anpassbar) */}
-      <div style={{ ...cardStyle, borderLeft: '6px solid #8b5cf6' }}>
+      <div style={{ ...themeCard, borderLeft: '6px solid #8b5cf6' }}>
         <h3 style={{ margin: '0 0 12px 0', fontSize: '1rem' }}>🏷️ App-Name & Branding</h3>
         <p style={{ margin: '0 0 12px 0', fontSize: '0.8rem', color: '#6b7280' }}>
           Erscheint auf Login, in der App und in Push-Benachrichtigungen. Leer = generischer Name „Kasse“.
@@ -489,8 +484,7 @@ export default function AdminPanel({ session }) {
         </div>
       </div>
 
-      {/* SCHULDENLISTE */}
-      <div style={cardStyle}>
+      <div style={themeCard}>
         <h3 style={{ marginTop: 0, marginBottom: '16px', fontSize: '1.1rem' }}>📊 Salden-Übersicht</h3>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -520,8 +514,7 @@ export default function AdminPanel({ session }) {
         </div>
       </div>
 
-      {/* TRANSAKTIONEN */}
-      <div style={cardStyle}>
+      <div style={themeCard}>
         <h3 style={{ marginTop: 0, marginBottom: '16px', fontSize: '1.1rem' }}>📜 Letzte Buchungen</h3>
         <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
           {transactions.map(t => {
@@ -559,7 +552,6 @@ export default function AdminPanel({ session }) {
   )
 }
 
-const cardStyle = { padding: '20px', borderRadius: '20px', backgroundColor: '#fff', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', border: '1px solid #f3f4f6' }
 const brandingInputStyle = { width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid #e5e7eb', fontSize: '0.95rem', boxSizing: 'border-box' }
 const statBoxStyle = { padding: '12px', background: 'rgba(255,255,255,0.6)', borderRadius: '14px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.8)' }
 const statLabelStyle = { display: 'block', fontSize: '0.65rem', color: '#64748b', textTransform: 'uppercase', fontWeight: '700', marginBottom: '4px' }

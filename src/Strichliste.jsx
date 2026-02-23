@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { apiGetProducts, apiGetProfiles, apiInsertTransaction } from './api'
+import { cardStyle as themeCard, sectionTitleStyle as themeTitle, sectionSubtitleStyle as themeSubtitle, labelStyle as themeLabel, selectStyle as themeSelect } from './uiTheme'
 
 export default function Strichliste({ session, onUpdate, isAdmin }) {
   const [products, setProducts] = useState([])
@@ -64,19 +65,19 @@ export default function Strichliste({ session, onUpdate, isAdmin }) {
   }
 
   return (
-    <div style={containerStyle}>
-      <header style={{ marginBottom: '20px' }}>
-        <h3 style={titleStyle}>🥤 Snacks und Getränke</h3>
-        <p style={subtitleStyle}>Einfach anklicken zum Buchen</p>
+    <div style={{ ...themeCard, marginTop: 0 }}>
+      <header style={{ marginBottom: 20 }}>
+        <h3 style={themeTitle}>🥤 Snacks und Getränke</h3>
+        <p style={themeSubtitle}>Einfach anklicken zum Buchen</p>
       </header>
 
       {isAdmin && (
         <div style={adminBoxStyle}>
-          <label style={adminLabelStyle}>🎯 Buchung für:</label>
+          <label style={themeLabel}>🎯 Buchung für</label>
           <select 
             value={targetUserId} 
             onChange={(e) => setTargetUserId(e.target.value)}
-            style={selectStyle}
+            style={themeSelect}
           >
             <option value={session.user.id}>-- Mich selbst --</option>
             {profiles.filter(p => p.id !== session.user.id).map(p => (
@@ -140,44 +141,12 @@ function getEmoji(name) {
   return '📦';
 }
 
-// STYLES
-const containerStyle = { 
-  marginTop: '20px', 
-  padding: '24px', 
-  backgroundColor: '#fff', 
-  borderRadius: '24px', 
-  border: '1px solid #f1f5f9',
-  boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)'
-}
-
-const titleStyle = { margin: 0, fontSize: '1.1rem', fontWeight: '800', color: '#111827' }
-const subtitleStyle = { margin: 0, fontSize: '0.75rem', color: '#94a3b8' }
-
 const adminBoxStyle = { 
-  marginBottom: '20px', 
-  padding: '12px', 
+  marginBottom: 20, 
+  padding: 14, 
   backgroundColor: '#f8fafc', 
-  borderRadius: '16px',
-  border: '1px solid #e2e8f0'
-}
-
-const adminLabelStyle = { 
-  fontSize: '0.65rem', 
-  fontWeight: '800', 
-  color: '#64748b', 
-  textTransform: 'uppercase', 
-  display: 'block', 
-  marginBottom: '6px' 
-}
-
-const selectStyle = { 
-  width: '100%', 
-  padding: '10px', 
-  borderRadius: '10px', 
-  border: '1px solid #cbd5e1', 
-  backgroundColor: '#fff',
-  fontSize: '0.9rem',
-  fontWeight: '600'
+  borderRadius: 14,
+  border: '1px solid #e5e7eb'
 }
 
 const gridStyle = { 

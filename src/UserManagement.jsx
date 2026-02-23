@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { apiGetProfiles, apiUpdateProfileAdmin, apiDeleteProfile } from './api'
+import { cardStyle as themeCard, sectionTitleStyle as themeTitle, sectionSubtitleStyle as themeSubtitle, inputStyle as themeInput } from './uiTheme'
 
 export default function UserManagement() {
   const [users, setUsers] = useState([])
@@ -35,17 +36,17 @@ export default function UserManagement() {
     }
   }
 
-  if (loading) return <div style={panelStyle}>Lade Personal...</div>
+  if (loading) return <div style={themeCard}>Lade Personal...</div>
 
   const filteredUsers = searchText.trim()
     ? users.filter(u => u.username?.toLowerCase().includes(searchText.trim().toLowerCase()))
     : users
 
   return (
-    <div style={panelStyle}>
-      <header style={{ marginBottom: '20px' }}>
-        <h2 style={titleStyle}>👥 Personalverwaltung</h2>
-        <p style={subtitleStyle}>{users.length} registrierte Mitglieder</p>
+    <div style={themeCard}>
+      <header style={{ marginBottom: 20 }}>
+        <h2 style={themeTitle}>👥 Personalverwaltung</h2>
+        <p style={themeSubtitle}>{users.length} registrierte Mitglieder</p>
       </header>
 
       <input
@@ -53,15 +54,7 @@ export default function UserManagement() {
         placeholder="Suchen nach Name…"
         value={searchText}
         onChange={e => setSearchText(e.target.value)}
-        style={{
-          width: '100%',
-          padding: '12px 16px',
-          borderRadius: '12px',
-          border: '1px solid #e5e7eb',
-          fontSize: '0.95rem',
-          marginBottom: '16px',
-          backgroundColor: '#f9fafb'
-        }}
+        style={{ ...themeInput, marginBottom: 16 }}
       />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -109,18 +102,6 @@ export default function UserManagement() {
     </div>
   )
 }
-
-// STYLES
-const panelStyle = { 
-  padding: '24px', 
-  backgroundColor: '#fff', 
-  borderRadius: '24px', 
-  border: '1px solid #f1f5f9',
-  boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)'
-}
-
-const titleStyle = { margin: 0, fontSize: '1.2rem', fontWeight: '800', color: '#0f172a' }
-const subtitleStyle = { margin: '4px 0 0 0', fontSize: '0.8rem', color: '#94a3b8' }
 
 const userRowStyle = { 
   display: 'flex', 

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { apiUpdateProfileMe, apiUpdatePassword } from './api'
 import { isPushSupported, isIos, isStandalone, requestPermissionAndSubscribe, unsubscribe, getCurrentPushState, getLastPushError } from './pushNotifications'
+import { SECTION_GAP, cardStyle as themeCard, sectionTitleStyle as themeCardTitle, labelStyle as themeLabel, inputStyle as themeInput, primaryBtnStyle as themePrimaryBtn, secondaryBtnStyle as themeSecondaryBtn } from './uiTheme'
 
 export default function UserSettings({ session, profile, onUpdate, transactions = [] }) {
   const safeTransactions = Array.isArray(transactions) ? transactions : []
@@ -57,11 +58,10 @@ export default function UserSettings({ session, profile, onUpdate, transactions 
   }
 
   return (
-    <div style={containerStyle}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: SECTION_GAP }}>
 
-      {/* --- PUSH-BENACHRICHTIGUNGEN (immer sichtbar) --- */}
-      <div style={{ ...cardStyle, backgroundColor: '#111827', border: 'none' }}>
-        <h3 style={{ ...cardTitleStyle, color: 'white', marginBottom: '8px' }}>🔔 Push-Benachrichtigungen</h3>
+      <div style={{ ...themeCard, backgroundColor: '#111827', border: 'none' }}>
+        <h3 style={{ ...themeCardTitle, color: 'white', marginBottom: 8 }}>🔔 Push-Benachrichtigungen</h3>
         <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.8rem', marginBottom: '15px' }}>
           Erhalte Ankündigungen zu Mahlzeiten und Kasse direkt auf diesem Gerät.
         </p>
@@ -113,45 +113,42 @@ export default function UserSettings({ session, profile, onUpdate, transactions 
         )}
       </div>
 
-      {/* Profil-Sektion */}
-      <div style={cardStyle}>
-        <h3 style={cardTitleStyle}>👤 Mein Profil</h3>
-        <div style={{ marginBottom: '15px' }}>
-          <label style={miniLabelStyle}>Anzeigename</label>
+      <div style={themeCard}>
+        <h3 style={{ ...themeCardTitle, marginBottom: 16 }}>👤 Mein Profil</h3>
+        <div style={{ marginBottom: 16 }}>
+          <label style={themeLabel}>Anzeigename</label>
           <input 
-            style={inputStyle} 
+            style={themeInput} 
             value={username} 
             onChange={e => setUsername(e.target.value)} 
             placeholder="Dein Name"
           />
         </div>
-        <button onClick={updateUsername} style={primaryBtnStyle} disabled={loading}>
+        <button onClick={updateUsername} style={{ ...themeSecondaryBtn, width: '100%' }} disabled={loading}>
           Name speichern
         </button>
       </div>
 
-      {/* Sicherheits-Sektion */}
-      <div style={cardStyle}>
-        <h3 style={cardTitleStyle}>🔒 Sicherheit</h3>
-        <div style={{ marginBottom: '15px' }}>
-          <label style={miniLabelStyle}>Neues Passwort</label>
+      <div style={themeCard}>
+        <h3 style={{ ...themeCardTitle, marginBottom: 16 }}>🔒 Sicherheit</h3>
+        <div style={{ marginBottom: 16 }}>
+          <label style={themeLabel}>Neues Passwort</label>
           <input 
             type="password" 
-            style={inputStyle} 
+            style={themeInput} 
             value={password} 
             onChange={e => setPassword(e.target.value)} 
             placeholder="Mind. 6 Zeichen" 
           />
         </div>
-        <button onClick={updatePassword} style={secondaryBtnStyle} disabled={loading}>
+        <button onClick={updatePassword} style={{ ...themePrimaryBtn, width: '100%' }} disabled={loading}>
           Passwort aktualisieren
         </button>
       </div>
 
-      {/* Historie-Sektion */}
-      <div style={cardStyle}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-          <h3 style={cardTitleStyle}>📜 Letzte Buchungen</h3>
+      <div style={themeCard}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <h3 style={{ ...themeCardTitle, marginBottom: 0 }}>📜 Letzte Buchungen</h3>
           <span style={countBadgeStyle}>{safeTransactions.length}</span>
         </div>
 
@@ -197,14 +194,6 @@ export default function UserSettings({ session, profile, onUpdate, transactions 
   )
 }
 
-// STYLES
-const containerStyle = { display: 'flex', flexDirection: 'column', gap: '20px' }
-const cardStyle = { backgroundColor: '#fff', padding: '24px', borderRadius: '24px', border: '1px solid #f1f5f9' }
-const cardTitleStyle = { marginTop: 0, marginBottom: '20px', fontSize: '1rem', fontWeight: '800', color: '#0f172a' }
-const miniLabelStyle = { fontSize: '0.65rem', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '6px', display: 'block' }
-const inputStyle = { width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0', backgroundColor: '#f8fafc', boxSizing: 'border-box', fontSize: '1rem' }
-const primaryBtnStyle = { width: '100%', padding: '14px', borderRadius: '12px', border: 'none', backgroundColor: '#f1f5f9', color: '#475569', cursor: 'pointer', fontWeight: 'bold' }
-const secondaryBtnStyle = { width: '100%', padding: '14px', borderRadius: '12px', border: 'none', backgroundColor: '#0f172a', color: 'white', cursor: 'pointer', fontWeight: 'bold' }
 
 const pushBtnStyle = {
   padding: '10px 20px',
