@@ -27,11 +27,17 @@ if (envResult.error && process.env.NODE_ENV !== 'production') {
 const { Pool } = pg
 
 const TARGET_URL = process.env.DATABASE_URL
-const SUPABASE_URL = process.env.SUPABASE_DATABASE_URL
+let SUPABASE_URL = process.env.SUPABASE_DATABASE_URL
 const supabasePasswordOnly = process.env.SUPABASE_DB_PASSWORD
 const supabaseHost = process.env.SUPABASE_DB_HOST
 const supabasePoolerHost = process.env.SUPABASE_DB_POOLER_HOST
 const supabaseProjectRef = process.env.SUPABASE_DB_PROJECT_REF
+const supabasePort = process.env.SUPABASE_DB_PORT || '5432'
+
+// Passwort-Platzhalter in SUPABASE_DATABASE_URL ersetzen (aus Dashboard kopieren, Passwort separat)
+if (SUPABASE_URL && supabasePasswordOnly && (SUPABASE_URL.includes('[YOUR-PASSWORD]') || SUPABASE_URL.includes('[PASSWORD]'))) {
+  SUPABASE_URL = SUPABASE_URL.replace(/\[YOUR-PASSWORD\]|\[PASSWORD\]/g, () => encodeURIComponent(String(supabasePasswordOnly).trim()))
+}
 
 const hasFullUrl = !!SUPABASE_URL
 const hasHostAndPassword = !!(supabaseHost && supabasePasswordOnly)
@@ -40,12 +46,16 @@ const projectRef = String(supabaseProjectRef || (supabaseHost && supabaseHost.re
 
 let resolvedSupabaseUrl = SUPABASE_URL
 if (usePooler && projectRef) {
+  // Session/Transaction über Pooler: User = postgres.[PROJECT-REF], Host = aws-0-REGION.pooler.supabase.com
   const user = `postgres.${projectRef}`
   const host = String(supabasePoolerHost).trim()
   const port = process.env.SUPABASE_DB_POOLER_PORT || '6543'
   resolvedSupabaseUrl = `postgresql://${user}:${encodeURIComponent(String(supabasePasswordOnly).trim())}@${host}:${port}/postgres`
 } else if (hasHostAndPassword) {
-  resolvedSupabaseUrl = `postgresql://postgres:${encodeURIComponent(String(supabasePasswordOnly).trim())}@${String(supabaseHost).trim().replace(/^@/, '')}:5432/postgres`
+  // Direct (5432) oder Transaction auf Direct-Host (6543): User = postgres, Host = db.xxx.supabase.co
+  const host = String(supabaseHost).trim().replace(/^@/, '')
+  const port = String(supabasePort).trim()
+  resolvedSupabaseUrl = `postgresql://postgres:${encodeURIComponent(String(supabasePasswordOnly).trim())}@${host}:${port}/postgres`
 }
 
 if (!TARGET_URL) {
@@ -55,14 +65,19 @@ if (!TARGET_URL) {
 if (!resolvedSupabaseUrl) {
   console.error(
     'Fehler: Supabase-Zugang fehlt. In dieser .env eine der Varianten eintragen:\n  ' + serverEnv + '\n' +
-    '  A) SUPABASE_DATABASE_URL=postgresql://postgres:PASSWORT@db.xxxx.supabase.co:5432/postgres\n' +
-    '  B) SUPABASE_DB_HOST=db.xxxx.supabase.co  und  SUPABASE_DB_PASSWORD=dein_passwort\n' +
-    '  C) Pooler (falls Direct 28P01): SUPABASE_DB_POOLER_HOST, SUPABASE_DB_PROJECT_REF, SUPABASE_DB_PASSWORD'
+    '  A) SUPABASE_DATABASE_URL = komplette URI aus Dashboard (Connect → URI kopieren). Passwort mit Sonderzeichen: [YOUR-PASSWORD] in URL lassen und SUPABASE_DB_PASSWORD setzen.\n' +
+    '  B) Direct/Transaction (db.xxx.supabase.co): SUPABASE_DB_HOST=db.xxx.supabase.co, SUPABASE_DB_PASSWORD=..., optional SUPABASE_DB_PORT=6543 für Transaction.\n' +
+    '  C) Pooler (Session): SUPABASE_DB_POOLER_HOST=aws-0-REGION.pooler.supabase.com, SUPABASE_DB_PROJECT_REF=xxx, SUPABASE_DB_PASSWORD=...'
   )
   process.exit(1)
 }
 
-const supabasePool = new Pool({ connectionString: resolvedSupabaseUrl, max: 2 })
+// Supabase erfordert SSL; pg verwendet sonst ggf. keine verschlüsselte Verbindung
+const supabasePool = new Pool({
+  connectionString: resolvedSupabaseUrl,
+  max: 2,
+  ssl: resolvedSupabaseUrl.includes('supabase.co') ? { rejectUnauthorized: true } : false
+})
 const targetPool = new Pool({ connectionString: TARGET_URL, max: 2 })
 
 /** Tabellen in Reihenfolge (FK-abhängig). Nur Tabellen, die in Supabase existieren können. */
