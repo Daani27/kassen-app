@@ -5,6 +5,7 @@ import { useBranding } from './BrandingContext'
 import Login from './Login'
 import Dashboard from './Dashboard'
 import GastPage from './GastPage'
+import ResetPassword from './ResetPassword'
 import PwaInstallBanner from './PwaInstallBanner'
 import ErrorBoundary from './ErrorBoundary'
 
@@ -95,6 +96,7 @@ function App() {
     <>
       <Routes>
         <Route path="/gast" element={<GastPage />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route
           path="/*"
           element={

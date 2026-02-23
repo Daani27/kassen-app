@@ -1,6 +1,7 @@
 import crypto from 'node:crypto'
 import { query } from '../db.js'
 import { signToken, hashPassword, checkPassword, getProfileById, requireAuth } from '../auth.js'
+import { sendPasswordResetEmail, isMailConfigured } from '../mail.js'
 
 export function registerAuthRoutes(app) {
   /** POST /api/auth/register */
@@ -90,5 +91,67 @@ export function registerAuthRoutes(app) {
     const hash = await hashPassword(password)
     await query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, req.user.id])
     return res.json({ ok: true })
+  })
+
+  /** POST /api/auth/forgot-password – Link zum Zurücksetzen an E-Mail senden */
+  app.post('/api/auth/forgot-password', async (req, res) => {
+    if (!isMailConfigured()) {
+      return res.status(503).json({
+        error: 'Passwort-Zurücksetzen ist nicht konfiguriert (SMTP fehlt)',
+        hint: 'Admin: In server/.env SMTP_HOST, SMTP_USER, SMTP_PASS und RESET_LINK_BASE setzen.',
+      })
+    }
+    const { email } = req.body || {}
+    const emailNorm = (email && String(email).trim().toLowerCase()) || ''
+    const msg = 'Falls ein Konto mit dieser E-Mail existiert, wurde ein Link zum Zurücksetzen gesendet. Bitte Postfach (und Spam) prüfen.'
+    if (!emailNorm) {
+      return res.json({ message: msg })
+    }
+    const r = await query('SELECT id FROM users WHERE email = $1', [emailNorm])
+    const user = r.rows[0]
+    if (!user) {
+      return res.json({ message: msg })
+    }
+    const token = crypto.randomBytes(32).toString('hex')
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000) // 1 Stunde
+    await query(
+      'INSERT INTO password_reset_tokens (token, user_id, expires_at) VALUES ($1, $2, $3)',
+      [token, user.id, expiresAt]
+    )
+    const base = (process.env.RESET_LINK_BASE || '').replace(/\/$/, '')
+    const resetLink = base ? `${base}/reset-password?token=${token}` : `${req.protocol}://${req.get('host')}/reset-password?token=${token}`
+    let appName = 'Kasse'
+    try {
+      const br = await query("SELECT value FROM app_branding WHERE key = 'app_name' LIMIT 1")
+      if (br.rows[0]?.value) appName = br.rows[0].value
+    } catch (_) {}
+    const sent = await sendPasswordResetEmail(emailNorm, resetLink, appName)
+    if (!sent) {
+      return res.status(503).json({ error: 'E-Mail konnte nicht gesendet werden. Bitte Admin kontaktieren.' })
+    }
+    return res.json({ message: msg })
+  })
+
+  /** POST /api/auth/reset-password – Neues Passwort mit Token setzen */
+  app.post('/api/auth/reset-password', async (req, res) => {
+    const { token, password } = req.body || {}
+    if (!token || typeof token !== 'string') {
+      return res.status(400).json({ error: 'Ungültiger oder abgelaufener Link. Bitte erneut anfordern.' })
+    }
+    if (!password || password.length < 6) {
+      return res.status(400).json({ error: 'Passwort muss mindestens 6 Zeichen haben' })
+    }
+    const r = await query(
+      'SELECT user_id FROM password_reset_tokens WHERE token = $1 AND expires_at > now()',
+      [token.trim()]
+    )
+    const row = r.rows[0]
+    if (!row) {
+      return res.status(400).json({ error: 'Ungültiger oder abgelaufener Link. Bitte erneut anfordern.' })
+    }
+    const hash = await hashPassword(password)
+    await query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, row.user_id])
+    await query('DELETE FROM password_reset_tokens WHERE token = $1', [token.trim()])
+    return res.json({ ok: true, message: 'Passwort wurde geändert. Du kannst dich jetzt anmelden.' })
   })
 }

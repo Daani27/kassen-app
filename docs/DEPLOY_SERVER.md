@@ -380,7 +380,7 @@ Certbot passt die Nginx-Konfiguration an und richtet SSL ein. Automatische Verl�
 ## 7. Kurz-Checkliste
 
 - [ ] PostgreSQL: DB + User angelegt, **schema.sql** ausgeführt  
-- [ ] **server/.env**: `DATABASE_URL`, `JWT_SECRET`, `VAPID_*`, `PORT=3001`  
+- [ ] **server/.env**: `DATABASE_URL`, `JWT_SECRET`, `VAPID_*`, `PORT=3001`; optional für „Passwort vergessen“: `SMTP_*`, `RESET_LINK_BASE` (Abschnitt 7.5)  
 - [ ] Backend: `npm install`, `npm start` getestet, **systemd**-Service läuft  
 - [ ] **Root-.env**: `VITE_API_URL` und `VITE_VAPID_PUBLIC_KEY` (für Build)  
 - [ ] Frontend: `npm run build`, **dist/** nach `/var/www/html/...` kopiert  
@@ -507,6 +507,37 @@ node scripts/make-admin.js deine-email@example.com
 ```
 
 Danach in der App abmelden und wieder anmelden (oder Seite neu laden) – dann erscheinen Admin-Bereich und -Rechte.
+
+---
+
+## 7.5 Passwort vergessen (selbst zurücksetzen)
+
+Nutzer können über **„Passwort vergessen“** auf der Anmeldeseite einen Link an ihre E-Mail anfordern. Der Link führt zu `/reset-password?token=...`, dort wird ein neues Passwort gesetzt.
+
+**Voraussetzung:** E-Mail-Versand (SMTP) muss in **server/.env** konfiguriert sein. Ohne SMTP antwortet die API mit 503 und die App zeigt einen Hinweis, den Admin zu kontaktieren.
+
+**Konfiguration in server/.env:**
+
+```env
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=noreply@example.com
+SMTP_PASS=geheim
+SMTP_FROM=Kasse <noreply@example.com>
+RESET_LINK_BASE=https://kasse.example.de
+```
+
+- **RESET_LINK_BASE:** Basis-URL der App (ohne Slash am Ende). Der Link in der E-Mail lautet `RESET_LINK_BASE/reset-password?token=...`. Muss mit der tatsächlichen Domain übereinstimmen (z. B. `https://kassentest.markertcloud.de`).
+- **SMTP:** Typische Anbieter: z. B. SMTP deines E-Mail-Providers, SendGrid, Mailgun, Resend. Für Gmail: App-Passwort verwenden, SMTP_PORT=587, SMTP_SECURE=false.
+
+**Bestehende Installationen:** Falls die Tabelle `password_reset_tokens` noch fehlt, einmalig ausführen:
+
+```bash
+psql -U kasse_app -d kasse_db -f /var/www/kassen-app/server/migrations/20250224000000_password_reset_tokens.sql
+```
+
+(Passwort und Pfad ggf. anpassen.)
 
 ---
 

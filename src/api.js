@@ -118,6 +118,24 @@ export async function apiUpdatePassword(password) {
   })
 }
 
+/** Passwort vergessen: Link an E-Mail senden. Gibt { message } oder wirft bei 503 (SMTP nicht konfiguriert). */
+export async function apiForgotPassword(email) {
+  const data = await request('/api/auth/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify({ email: (email || '').trim().toLowerCase() }),
+  })
+  return data
+}
+
+/** Passwort mit Token setzen (nach Klick auf Link in E-Mail). */
+export async function apiResetPassword(token, password) {
+  const data = await request('/api/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify({ token: (token || '').trim(), password }),
+  })
+  return data
+}
+
 // --- App Settings ---
 export async function apiGetRegistrationEnabled() {
   const d = await request('/api/app-settings/registration_enabled')

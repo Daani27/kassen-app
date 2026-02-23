@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { apiLogin, apiRegister, apiGetRegistrationEnabled } from './api'
+import { apiLogin, apiRegister, apiGetRegistrationEnabled, apiForgotPassword } from './api'
 import { useBranding } from './BrandingContext'
 
 export default function Login({ onLogin }) {
@@ -53,11 +53,21 @@ export default function Login({ onLogin }) {
     setLoading(false)
   }
 
-  const handleSendMagicLink = async (e) => {
+  const handleForgotPassword = async (e) => {
     e.preventDefault()
-    const magicEmail = magicEmailInputRef.current?.value?.trim() ?? ''
-    if (!magicEmail) return alert('Bitte E-Mail eingeben!')
-    alert('Magic-Link-Login ist mit eigener Datenbank nicht verfügbar. Bitte Passwort-Login nutzen.')
+    const email = magicEmailInputRef.current?.value?.trim() ?? ''
+    if (!email) return alert('Bitte E-Mail eingeben.')
+    setLoading(true)
+    try {
+      const data = await apiForgotPassword(email)
+      alert(data?.message || 'Falls ein Konto mit dieser E-Mail existiert, wurde ein Link zum Zurücksetzen gesendet. Bitte Postfach (und Spam) prüfen.')
+      setShowMagicLink(false)
+    } catch (e) {
+      const err = e.data?.error || e.message
+      const hint = e.data?.hint ? '\n\n' + e.data.hint : ''
+      alert('Fehler: ' + err + hint)
+    }
+    setLoading(false)
   }
 
   return (
@@ -138,8 +148,8 @@ export default function Login({ onLogin }) {
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '20px' }}>
-            <h4 style={{ margin: '0', color: '#111827' }}>Link anfordern</h4>
-            <p style={{ ...subtitleStyle, fontSize: '0.8rem' }}>Mit eigener Datenbank wird nur Passwort-Login unterstützt.</p>
+            <h4 style={{ margin: '0', color: '#111827' }}>Passwort vergessen</h4>
+            <p style={{ ...subtitleStyle, fontSize: '0.8rem' }}>E-Mail eingeben – wir senden dir einen Link zum Zurücksetzen (gültig 1 Stunde).</p>
             <input
               ref={magicEmailInputRef}
               type="email"
@@ -148,11 +158,11 @@ export default function Login({ onLogin }) {
               style={inputStyle}
             />
             <button
-              onClick={handleSendMagicLink}
+              onClick={handleForgotPassword}
               disabled={loading}
               style={{ ...btnStyle, backgroundColor: '#6366f1', color: 'white' }}
             >
-              Hinweis anzeigen
+              {loading ? 'Wird gesendet...' : 'Link senden'}
             </button>
             <button 
               onClick={() => setShowMagicLink(false)} 
