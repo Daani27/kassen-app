@@ -8,7 +8,7 @@ import GastPage from './GastPage'
 import PwaInstallBanner from './PwaInstallBanner'
 import ErrorBoundary from './ErrorBoundary'
 
-const APP_VERSION = import.meta.env.PACKAGE_VERSION || '3.0.1'
+const APP_VERSION = import.meta.env.PACKAGE_VERSION || '3.0.2'
 
 function App() {
   const [session, setSession] = useState(null)
