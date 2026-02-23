@@ -60,12 +60,9 @@ export default defineConfig({
   },
   base: './', // Wichtig für relative Pfade auf mobilen Endgeräten
   server: {
-    host: '0.0.0.0', // Zwingend erforderlich für die Replit-Vorschau
+    host: '0.0.0.0',
     port: 5173,
-    hmr: {
-      clientPort: 443 // Stellt sicher, dass Hot Module Replacement über HTTPS in Replit funktioniert
-    },
-    allowedHosts: 'all' // Verhindert "Invalid Host Header" Fehler in der Cloud
+    allowedHosts: 'all'
   },
   build: {
     outDir: 'dist',

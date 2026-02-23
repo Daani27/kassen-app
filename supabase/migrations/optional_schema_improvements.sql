@@ -1,4 +1,4 @@
--- Optionale Schema-Verbesserungen für WA I KASSE
+-- Optionale Schema-Verbesserungen für Kassen App
 -- Nur ausführen, wenn die genannten Objekte/Constraints noch nicht existieren.
 
 -- 1) profiles: Verknüpfung zu auth.users (falls noch nicht vorhanden)

@@ -85,7 +85,7 @@ Deno.serve(async (req) => {
     })
   }
 
-  const title = (body.title || 'WA I Kasse').slice(0, 100)
+  const title = (body.title || 'Kassen App').slice(0, 100)
   const payload = JSON.stringify({ title, body: (body.body || '').slice(0, 500) })
 
   const { data: subs, error } = await supabaseAuth

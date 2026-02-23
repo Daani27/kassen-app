@@ -27,4 +27,4 @@ CREATE POLICY "Users manage own push subscription"
 -- Dafür wird in der Edge Function der Service-Role-Key verwendet, der RLS umgeht.
 -- Kein weiteres Policy nötig für Backend.
 
-COMMENT ON TABLE public.push_subscriptions IS 'Web-Push-Abonnements pro User für WA I KASSE';
+COMMENT ON TABLE public.push_subscriptions IS 'Web-Push-Abonnements pro User für Kassen App';
