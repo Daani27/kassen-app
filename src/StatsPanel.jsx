@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
-import { supabase } from './supabaseClient'
+import { apiGetTransactions, apiGetGlobalExpenses, apiGetProfiles } from './api'
+import { useBranding } from './BrandingContext'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
@@ -27,9 +28,9 @@ export default function StatisticsPanel() {
   async function fetchStats() {
     setData(prev => ({ ...prev, loading: true }))
 
-    const { data: userTrans } = await supabase.from('transactions').select('*')
-    const { data: globalExp } = await supabase.from('global_expenses').select('*')
-    const { data: profiles } = await supabase.from('profiles').select('id, username')
+    const userTrans = await apiGetTransactions(null, true)
+    const globalExp = await apiGetGlobalExpenses()
+    const profiles = await apiGetProfiles()
 
     const profileMap = Object.fromEntries((profiles || []).map(p => [p.id, p.username]))
 
@@ -95,14 +96,17 @@ export default function StatisticsPanel() {
     })
   }
 
+  const branding = useBranding()
+  const pdfOrgName = branding.app_subtitle || branding.app_name || 'Kasse'
+
   const exportPDF = () => {
     try {
       const doc = new jsPDF()
       doc.setFontSize(18)
-      doc.text("Detaillierter Kassenbericht", 14, 20)
+      doc.text('Detaillierter Kassenbericht', 14, 20)
       doc.setFontSize(10)
       doc.setTextColor(100)
-      doc.text(`Wachabteilung I - Zeitraum: ${new Date(startDate).toLocaleDateString()} bis ${new Date(endDate).toLocaleDateString()}`, 14, 28)
+      doc.text(`${pdfOrgName} – Zeitraum: ${new Date(startDate).toLocaleDateString()} bis ${new Date(endDate).toLocaleDateString()}`, 14, 28)
 
       const tableRows = data.transactionList.map(t => [
         new Date(t.created_at).toLocaleDateString(),

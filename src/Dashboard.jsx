@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react'
-import { supabase } from './supabaseClient'
+import { useEffect, useState, useRef } from 'react'
+import { apiGetProfileMe, apiGetTransactions, apiGetActiveMeal, apiGetGlobalExpenses, apiUpdateProfileVersion, apiLogout } from './api'
+
+const APP_VERSION = typeof import.meta.env?.PACKAGE_VERSION === 'string' ? import.meta.env.PACKAGE_VERSION : ''
 import Strichliste from './Strichliste'
 import Mahlzeiten from './Mahlzeiten'
 import AdminPanel from './AdminPanel'
@@ -9,7 +11,7 @@ import Fruehstueck from './Fruehstueck'
 import UserManagement from './UserManagement'
 import UserSettings from './UserSettings'
 
-const STORAGE_KEY = 'wa1kasse_active_tab'
+const STORAGE_KEY = 'kasse_active_tab'
 
 function getInitialTab() {
   try {
@@ -19,22 +21,90 @@ function getInitialTab() {
   return 'home'
 }
 
-export default function Dashboard({ session }) {
+const PULL_THRESHOLD = 50
+const getScrollRoot = () => document.getElementById('root')
+
+export default function Dashboard({ session, onLogout }) {
   const [activeTab, setActiveTab] = useState(getInitialTab)
   const [balance, setBalance] = useState(0)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [mealInfo, setMealInfo] = useState({ count: 0, price: 0, date: null })
   const [userTransactions, setUserTransactions] = useState([])
+  const [pullY, setPullY] = useState(0)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const touchStartYRef = useRef(0)
+  const pullYRef = useRef(0)
 
   useEffect(() => {
     fetchInitialData()
   }, [])
 
+  // Version für Admin-Übersicht aktualisieren
+  useEffect(() => {
+    if (!session?.user?.id) return
+    const version = APP_VERSION || null
+    apiUpdateProfileVersion(version).catch((e) => console.warn('Version-Update:', e.message))
+  }, [session?.user?.id])
+
   useEffect(() => {
     try {
       sessionStorage.setItem(STORAGE_KEY, activeTab)
     } catch (_) {}
+  }, [activeTab])
+
+  useEffect(() => {
+    if (activeTab === 'home') fetchMealInfo()
+  }, [activeTab])
+
+  // Pull-to-Refresh auf Startseite
+  useEffect(() => {
+    if (activeTab !== 'home') return
+    const root = getScrollRoot()
+    if (!root) return
+
+    function getScrollTop() {
+      const el = getScrollRoot()
+      return el ? el.scrollTop : 0
+    }
+
+    function handleTouchStart(e) {
+      touchStartYRef.current = e.touches[0].clientY
+      pullYRef.current = 0
+      setPullY(0)
+    }
+
+    function handleTouchMove(e) {
+      const scrollTop = getScrollTop()
+      if (scrollTop > 2) return
+      const y = e.touches[0].clientY
+      const delta = y - touchStartYRef.current
+      if (delta > 0) {
+        const val = Math.min(delta, 80)
+        pullYRef.current = val
+        setPullY(val)
+      }
+    }
+
+    function handleTouchEnd() {
+      const currentPull = pullYRef.current
+      setPullY(0)
+      pullYRef.current = 0
+      if (currentPull >= PULL_THRESHOLD && getScrollTop() <= 2) {
+        setIsRefreshing(true)
+        Promise.all([fetchUserData(), fetchMealInfo()]).finally(() => setIsRefreshing(false))
+        if (typeof window.__pwaCheckUpdate === 'function') window.__pwaCheckUpdate()
+      }
+    }
+
+    root.addEventListener('touchstart', handleTouchStart, { passive: true })
+    root.addEventListener('touchmove', handleTouchMove, { passive: true })
+    root.addEventListener('touchend', handleTouchEnd, { passive: true })
+    return () => {
+      root.removeEventListener('touchstart', handleTouchStart)
+      root.removeEventListener('touchmove', handleTouchMove)
+      root.removeEventListener('touchend', handleTouchEnd)
+    }
   }, [activeTab])
 
   async function fetchInitialData() {
@@ -45,70 +115,39 @@ export default function Dashboard({ session }) {
 
   async function fetchUserData() {
     try {
-      const { data: profileData } = await supabase
-        .from('profiles').select('*').eq('id', session.user.id).single()
+      const profileData = await apiGetProfileMe()
       setProfile(profileData)
 
-      const { data: allTrans } = await supabase
-        .from('transactions')
-        .select('amount')
-        .eq('user_id', session.user.id)
-        .eq('is_cancelled', false)
-
-      const total = (allTrans || []).reduce((acc, curr) => acc + Number(curr.amount), 0)
+      const allTrans = await apiGetTransactions(session.user.id)
+      const nonCancelled = (allTrans || []).filter((t) => !t.is_cancelled)
+      const total = nonCancelled.reduce((acc, curr) => acc + Number(curr.amount), 0)
       setBalance(total)
-
-      const { data: recentTrans } = await supabase
-        .from('transactions')
-        .select('*')
-        .eq('user_id', session.user.id)
-        .eq('is_cancelled', false)
-        .order('created_at', { ascending: false })
-        .limit(20)
-
-      setUserTransactions(recentTrans || [])
+      setUserTransactions(nonCancelled.slice(0, 20))
     } catch (error) {
-      console.error("Fehler beim Laden:", error.message)
+      console.error('Fehler beim Laden:', error.message)
     }
   }
 
   async function fetchMealInfo() {
     try {
       const today = new Date().toISOString().split('T')[0]
-      const { data: meal } = await supabase
-        .from('meals')
-        .select('*')
-        .eq('status', 'open')
-        .gte('meal_date', today)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
+      const meal = await apiGetActiveMeal()
+      const mealDate = meal?.meal_date ? String(meal.meal_date).slice(0, 10) : today
 
       if (meal) {
-        const { count } = await supabase
-          .from('meal_participants')
-          .select('*', { count: 'exact', head: true })
-          .eq('meal_id', meal.id)
-
-        const { data: expenseData } = await supabase
-          .from('global_expenses')
-          .select('amount')
-          .eq('category', 'abendessen')
-          .eq('shift_date', meal.meal_date)
-          .eq('is_cancelled', false)
-
-        const autoSum = expenseData?.reduce((acc, curr) => acc + Math.abs(Number(curr.amount)), 0) || 0
+        const count = (meal.meal_participants || []).length
+        const expenseData = await apiGetGlobalExpenses({ category: 'abendessen', shift_date: mealDate })
+        const autoSum = (expenseData || []).reduce((acc, curr) => acc + Math.abs(Number(curr.amount)), 0) || 0
         const currentCosts = (meal.total_cost && meal.total_cost > 0) ? meal.total_cost : autoSum
         const rawPerPerson = count > 0 ? currentCosts / count : 0
         let perPerson = count > 0 ? Math.ceil(rawPerPerson * 2) / 2 : 0
-        if (Math.round(rawPerPerson * 100) % 50 === 0) perPerson += 0.5 // nur bei exakt ,00 oder ,50
-
-        setMealInfo({ count: count || 0, price: perPerson, date: meal.meal_date })
+        if (Math.round(rawPerPerson * 100) % 50 === 0) perPerson += 0.5
+        setMealInfo({ count, price: perPerson, date: mealDate })
       } else {
         setMealInfo({ count: 0, price: 0, date: null })
       }
     } catch (error) {
-      console.error("MealInfo Fehler:", error.message)
+      console.error('MealInfo Fehler:', error.message)
     }
   }
 
@@ -179,7 +218,28 @@ export default function Dashboard({ session }) {
         </nav>
 
         {activeTab === 'home' && (
-          <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
+          <div style={{ animation: 'fadeIn 0.4s ease-out', position: 'relative' }}>
+            {/* Pull-to-Refresh Indikator */}
+            {(pullY > 0 || isRefreshing) && (
+              <div style={{
+                position: 'sticky',
+                top: 0,
+                left: 0,
+                right: 0,
+                zIndex: 50,
+                padding: '10px',
+                textAlign: 'center',
+                fontSize: '0.85rem',
+                color: isRefreshing ? '#059669' : '#6b7280',
+                backgroundColor: 'rgba(255,255,255,0.95)',
+                borderBottom: '1px solid #e5e7eb',
+                margin: '0 -16px 16px -16px',
+                paddingLeft: 16,
+                paddingRight: 16
+              }}>
+                {isRefreshing ? 'Aktualisiere…' : pullY >= PULL_THRESHOLD ? 'Loslassen zum Aktualisieren' : 'Ziehen zum Aktualisieren'}
+              </div>
+            )}
             <header style={{ marginBottom: '24px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
                 <h2 style={{ fontSize: '1.5rem', fontWeight: '800', margin: 0 }}>Moin, {profile?.username}! 👋</h2>
@@ -233,10 +293,10 @@ export default function Dashboard({ session }) {
           {activeTab === 'users' && profile?.is_admin && <UserManagement />}
           {activeTab === 'finance' && profile?.is_admin && <FinancePanel session={session} isAdmin={profile?.is_admin} onUpdate={() => { fetchUserData(); fetchMealInfo(); }} />}
           {activeTab === 'stats' && profile?.is_admin && <StatsPanel />}
-          {activeTab === 'admin' && profile?.is_admin && <AdminPanel />}
+          {activeTab === 'admin' && profile?.is_admin && <AdminPanel session={session} />}
         </div>
 
-        <button onClick={() => supabase.auth.signOut()} style={{ marginTop: '48px', width: '100%', color: '#9ca3af', background: 'none', border: 'none', textDecoration: 'none', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '500' }}>
+        <button onClick={() => { apiLogout(); if (onLogout) onLogout(); }} style={{ marginTop: '48px', width: '100%', color: '#9ca3af', background: 'none', border: 'none', textDecoration: 'none', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '500' }}>
           🚪 Konto abmelden
         </button>
       </div>

@@ -1,11 +1,13 @@
-import { useEffect, useState } from 'react'
-import { supabase } from './supabaseClient'
+import { useEffect, useState, useRef } from 'react'
+import { apiGetProducts, apiGetProfiles, apiInsertTransaction } from './api'
 
 export default function Strichliste({ session, onUpdate, isAdmin }) {
   const [products, setProducts] = useState([])
   const [profiles, setProfiles] = useState([])
   const [targetUserId, setTargetUserId] = useState(session.user.id)
   const [loading, setLoading] = useState(true)
+  const [bookingProductId, setBookingProductId] = useState(null)
+  const bookingLockRef = useRef(false)
 
   useEffect(() => {
     fetchProducts()
@@ -13,17 +15,22 @@ export default function Strichliste({ session, onUpdate, isAdmin }) {
   }, [isAdmin])
 
   async function fetchProducts() {
-    const { data, error } = await supabase.from('products').select('*').eq('is_active', true).order('name')
-    if (!error) setProducts(data)
+    try {
+      const data = await apiGetProducts()
+      setProducts(data || [])
+    } catch (_) {}
     setLoading(false)
   }
 
   async function fetchProfiles() {
-    const { data } = await supabase.from('profiles').select('id, username').order('username')
-    if (data) setProfiles(data)
+    try {
+      const data = await apiGetProfiles()
+      if (data) setProfiles(data)
+    } catch (_) {}
   }
 
   async function buyProduct(product) {
+    if (bookingLockRef.current || bookingProductId) return
     const rawPrice = parseFloat(product.price);
     if (isNaN(rawPrice)) {
       alert("Fehler: Ungültiger Preis.");
@@ -38,20 +45,21 @@ export default function Strichliste({ session, onUpdate, isAdmin }) {
     const confirmBuy = window.confirm(`${product.name} für ${targetName} (${Math.abs(finalAmount).toFixed(2)}€) buchen?`);
     if (!confirmBuy) return;
 
+    bookingLockRef.current = true
+    setBookingProductId(product.id)
     try {
-      const { error } = await supabase.from('transactions').insert([
-        { 
-          user_id: targetUserId, 
-          amount: finalAmount, 
-          description: product.name,
-          category: 'snack' 
-        }
-      ]);
-
-      if (error) throw error;
-      if (onUpdate) onUpdate();
+      await apiInsertTransaction({
+        user_id: targetUserId,
+        amount: finalAmount,
+        description: product.name,
+        category: 'snack',
+      })
+      if (onUpdate) onUpdate()
     } catch (e) {
-      alert('Fehler: ' + e.message);
+      alert('Fehler: ' + (e.data?.error || e.message))
+    } finally {
+      bookingLockRef.current = false
+      setBookingProductId(null)
     }
   }
 
@@ -84,24 +92,31 @@ export default function Strichliste({ session, onUpdate, isAdmin }) {
         ) : (
           products.map(p => {
             const isExternal = isAdmin && targetUserId !== session.user.id;
+            const isBooking = bookingProductId === p.id;
+            const isDisabled = !!bookingProductId;
             return (
               <button 
                 key={p.id} 
                 onClick={() => buyProduct(p)}
+                disabled={isDisabled}
                 style={{
                   ...tileStyle,
                   backgroundColor: isExternal ? '#eff6ff' : '#fff',
-                  borderColor: isExternal ? '#3b82f6' : '#f1f5f9'
+                  borderColor: isExternal ? '#3b82f6' : '#f1f5f9',
+                  opacity: isDisabled ? 0.7 : 1,
+                  cursor: isDisabled ? 'wait' : 'pointer'
                 }}
               >
                 <span style={emojiStyle}>{getEmoji(p.name)}</span>
-                <span style={productNameStyle}>{p.name}</span>
+                <span style={productNameStyle}>
+                  {isBooking ? 'Buchung läuft…' : p.name}
+                </span>
                 <span style={{
                   ...priceBadgeStyle,
                   backgroundColor: isExternal ? '#3b82f6' : '#111827',
                   color: '#fff'
                 }}>
-                  {Math.abs(p.price).toFixed(2)} €
+                  {isBooking ? '…' : `${Math.abs(p.price).toFixed(2)} €`}
                 </span>
               </button>
             )

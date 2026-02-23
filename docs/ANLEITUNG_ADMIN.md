@@ -1,4 +1,4 @@
-# WA I Kasse – Anleitung für Admins
+# Kassen App – Anleitung für Admins
 
 Diese Anleitung beschreibt alle Funktionen für **Administratoren**. Zusätzlich zu den Nutzer-Funktionen (siehe **ANLEITUNG_USER.md**) haben Admins Zugriff auf Kasse, Statistiken, Personalverwaltung und das Admin-Panel.
 

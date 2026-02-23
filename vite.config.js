@@ -26,8 +26,8 @@ export default defineConfig({
         clientsClaim: true
       },
       manifest: {
-        short_name: 'WA I Kasse',
-        name: 'WA I Kasse',
+        short_name: 'Kassen App',
+        name: 'Kassen App',
         icons: [
           {
             src: `/favicon.svg?v=${pkg.version}`,

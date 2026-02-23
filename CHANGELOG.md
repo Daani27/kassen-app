@@ -1,6 +1,32 @@
-# Versionsliste – WA I Kasse
+# Versionsliste – Kassen App
 
 Alle nennenswerten Änderungen werden hier dokumentiert.
+
+---
+
+## [2.1.10]
+
+### Mahlzeiten / Abendessen
+- **Preis-Anzeige ohne Abrechnung:** Neuer Button „Anzeige aktualisieren“ neben dem Einkaufsfeld – aktualisiert nur die Anzeige „Kosten p.P.“ (z. B. im Dashboard), ohne die Mahlzeit abzurechnen. Automatische Berechnung aus den Abendessen-Ausgaben bleibt unverändert; gespeicherter Gesamtpreis hat Vorrang beim Laden.
+- **Buttons „Anzeige aktualisieren“ und „Abschließen“** etwas größer (mehr Padding, Schrift 0.95rem).
+
+### Admin
+- **Ruf-Funktionen ins Admin-Menü:** „⏳ Fast fertig“ und „🔔 Essen fertig!“ aus dem Mahlzeiten-Tab entfernt und ins Admin-Panel verschoben – dort immer verfügbar, unabhängig von einer offenen Mahlzeit. Bei offener Mahlzeit wird deren Titel in der Push-Nachricht verwendet, sonst „Essen“. Dashboard übergibt `session` an AdminPanel.
+
+### Kasse (FinancePanel)
+- **Ausgabe für Person:** Neue Sektion „Ausgabe für Person“ – Person wählen, Betrag und optionale Beschreibung (z. B. Zigaretten mitgebracht). Bucht vom Konto der gewählten Person (Transaktion) und vom Barbestand (global_expense, Kategorie `ausgabe_person`).
+- **Transaktionsliste:** Anzeige verbessert: „Von → Zu“ (z. B. Bar/Kasse → Konto, Konto → Ausgabe), bei Kassenbuchungen „Veranlasst von: [Name]“, Datum inkl. Uhrzeit.
+- **Einnahme vs. Ausgabe:** Kassen-Einnahmen (z. B. Korrektur mit positivem Betrag) werden nicht mehr als Ausgabe angezeigt – klare Kennzeichnung „📥 Einnahme“ bzw. „📤 Ausgabe“ und passende Von/Zu-Beschriftung.
+- **Eingabefelder kompakter:** Karten, Inputs und Buttons im Kassentab verkleinert (weniger Padding, Schrift 0.9rem, kleinere Abstände).
+
+### Push-Benachrichtigungen
+- **Status beim Start:** Beim Öffnen der Einstellungen wird der aktuelle Push-Status ermittelt (Berechtigung + Subscription). Wenn Push bereits aktiv ist, werden „✓ Push aktiv“ sowie die Buttons „Aktualisieren“ und „Deaktivieren“ angezeigt – nicht mehr fälschlich „Aktivieren“.
+- **Deaktivieren kündigt im Browser:** Beim Klick auf „Deaktivieren“ wird die Subscription zusätzlich zur Löschung in Supabase auch im Browser gekündigt (`unsubscribe()`), damit beim nächsten App-Start wieder „Aktivieren“ erscheint.
+- **Nach App-Update:** Push muss nicht nach jedem Update neu aktiviert werden; die Subscription bleibt in der Regel erhalten. Geht sie nach einem Update verloren (z. B. manchmal unter iOS), reicht ein Tipp auf „Aktivieren“ zum erneuten Abonnieren.
+
+### PWA / Auto-Update (iOS & Android)
+- **Robustere Update-Erkennung (iOS):** Banner „Neue Version verfügbar“ nur, wenn **beide** Service-Worker-URLs (aktiv und wartend) einen Versions-Parameter haben und sich unterscheiden. Verhindert Falschanzeige, wenn auf iOS die aktive SW-URL ohne `?v=` geliefert wird. „Banner bereits gezeigt“ in `localStorage` (statt sessionStorage), damit keine Doppelanzeige nach App-Neustart.
+- **Robustere Update-Erkennung (Android):** Semver-Vergleich – Banner nur, wenn die **wartende** Version **neuere** ist als die aktive (vermeidet Anzeige bei älterem gecachten SW). URL-Normalisierung für Vergleich (Pfad ohne Query), „Banner gezeigt“ wird anhand der **Version** gespeichert (nicht der kompletten URL), damit unterschiedliche URL-Varianten auf Android nicht zu mehrfacher Anzeige führen.
 
 ---
 

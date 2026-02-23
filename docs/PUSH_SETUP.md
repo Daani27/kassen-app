@@ -1,6 +1,6 @@
 # Push-Benachrichtigungen (Ersatz für Telegram)
 
-Die WA I KASSE nutzt **Web Push** statt Telegram. Nutzer aktivieren Push in den Einstellungen; Admins senden Ankündigungen wie bisher (Mahlzeiten, Kasse offen).
+Die Kassen App nutzt **Web Push** statt Telegram. Nutzer aktivieren Push in den Einstellungen; Admins senden Ankündigungen wie bisher (Mahlzeiten, Kasse offen).
 
 ## 1. VAPID-Keys erzeugen
 

@@ -1,4 +1,4 @@
-# WA I Kasse – Anleitung für Nutzer
+# Kassen App – Anleitung für Nutzer
 
 Diese Anleitung beschreibt die App aus Sicht eines **normalen Mitglieds** (ohne Admin-Rechte).
 

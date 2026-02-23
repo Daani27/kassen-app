@@ -1,38 +1,45 @@
-# WA I Kasse
+# Kassen App
 
-PWA für Kassenführung, Mahlzeiten, Frühstücksbestellung und Push-Benachrichtigungen (z. B. Feuerwehr / Verein).  
-React, Vite, Supabase (Auth, DB, Edge Functions).
+PWA für Kassenführung, Mahlzeiten, Frühstücksbestellung und Push-Benachrichtigungen (z. B. Verein, Feuerwehr).  
+**Generisch nutzbar:** App-Name und Branding (Untertitel, Bug-Report-Link, Push-Titel) können von Admins unter **Einstellungen → Admin → App-Name & Branding** angepasst werden.
 
-**Dieses Repository ist für den privaten Gebrauch.** Keine echten Zugangsdaten oder Keys committen (siehe unten).
+- **Frontend:** React, Vite, PWA (Workbox)
+- **Backend:** eigener Node/Express-Server mit PostgreSQL (siehe `server/`)
 
 ---
 
 ## Schnellstart (lokal)
 
+**Backend (eigene Datenbank):**
+
 ```bash
-git clone https://github.com/DEIN-USER/feuerwehr-kasse.git
-cd feuerwehr-kasse
+cd server
+cp .env.example .env   # DATABASE_URL, JWT_SECRET, VAPID_* eintragen
+psql -U user -d deine_db -f schema.sql
+npm install && npm start
+```
+
+**Frontend:**
+
+```bash
+# im Projektroot
 npm install
-```
-
-**Umgebungsvariablen:** Kopie von `.env.example` anlegen und mit echten Werten füllen:
-
-```bash
-cp .env.example .env
-```
-
-In `.env` eintragen:
-
-- `VITE_SUPABASE_URL` und `VITE_SUPABASE_ANON_KEY` aus dem [Supabase-Dashboard](https://supabase.com/dashboard) (Project Settings → API)
-- `VITE_VAPID_PUBLIC_KEY` – öffentlicher VAPID-Key für Web-Push (z. B. mit `npx web-push generate-vapid-keys` erzeugen)
-
-Danach:
-
-```bash
+# .env: VITE_API_URL=http://localhost:3001, VITE_VAPID_PUBLIC_KEY=…
 npm run dev
 ```
 
-App läuft lokal (z. B. http://localhost:5173).
+App läuft z. B. unter http://localhost:5173. Der Tab-/PWA-Name ist standardmäßig „Kasse“ und kann vom Admin geändert werden.
+
+---
+
+## Branding (vom Admin anpassbar)
+
+Nach dem ersten Login als Admin: **Einstellungen → Admin** → Karte **„App-Name & Branding“**.
+
+- **App-Name:** z. B. „Kasse WA I“ – erscheint auf dem Login-Bildschirm, im Footer und als Seitentitel.
+- **Untertitel:** z. B. „Wachabteilung I • Lippstadt“ – unter dem App-Namen auf dem Login.
+- **Link „Bug melden“:** optional, URL für den Footer-Link (leer = Link wird ausgeblendet).
+- **Standard-Titel für Push:** Fallback-Titel für Benachrichtigungen, wenn beim Senden kein Titel angegeben wird.
 
 ---
 
@@ -42,44 +49,37 @@ App läuft lokal (z. B. http://localhost:5173).
 npm run build
 ```
 
-Ausgabe in `dist/`. Den Ordner auf deinen Webserver (z. B. Nginx) deployen.  
-PWA- und Nginx-Beispiele: siehe `docs/` und `nginx-default-server.conf`.
-
-Supabase:
-
-- Datenbank: Migrationen unter `supabase/migrations/` im Dashboard ausführen oder mit Supabase CLI anwenden.
-- Edge Function **send-push** (Web-Push): `npx supabase functions deploy send-push`.  
-  Secrets (VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, ggf. VAPID_SUBJECT) im Dashboard unter Project Settings → Edge Functions → Secrets setzen.  
-  Ausführlich: **docs/PUSH_SETUP.md**.
+Ausgabe in `dist/`. Backend getrennt deployen (z. B. `server/` auf Node-Host, PostgreSQL bereitstellen).  
+PWA- und Nginx-Beispiele: siehe `docs/` und ggf. `nginx-default-server.conf`.
 
 ---
 
-## Dokumentation (im Repo)
+## Produktionsreif / GitHub
+
+- **`.env` nie committen** – steht in `.gitignore`. Nach dem Klonen `.env` aus `.env.example` (Root) und `server/.env.example` (Backend) anlegen und mit echten Werten füllen.
+- **Produktion (Backend):** `NODE_ENV=production` setzen und **`JWT_SECRET`** in `server/.env` setzen (mind. 32 Zeichen). Ohne gesetztes `JWT_SECRET` startet die API in Produktion nicht.
+- **Secrets:** Datenbank-URL, JWT-Secret und VAPID-Keys nur in `.env` (lokal/Server), nie ins Repo.
+- **CORS:** Das Backend akzeptiert standardmäßig alle Origins (`origin: true`). Für striktere Produktion kann ein Reverse Proxy (Nginx) vor dem Backend stehen; dann kommt nur deine Domain.
+
+---
+
+## Dokumentation
 
 | Datei | Inhalt |
 |-------|--------|
-| **docs/ANLEITUNG_USER.md** | Anleitung für normale Nutzer |
-| **docs/ANLEITUNG_ADMIN.md** | Anleitung für Admins |
-| **docs/PUSH_SETUP.md** | Web-Push einrichten (VAPID, Edge Function) |
-| **CHANGELOG.md** | Versionsliste und Änderungen |
+| **docs/DEPLOY_SERVER.md** | **Deployment auf eigenem Server** (PostgreSQL, Backend, Nginx, systemd, HTTPS) |
+| **server/README.md** | Backend-Setup, Schema, Push (VAPID) |
+| **docs/ANLEITUNG_USER.md** | Anleitung für Nutzer |
+| **docs/ANLEITUNG_ADMIN.md** | Anleitung für Admins (inkl. Branding) |
+| **docs/PUSH_SETUP.md** | Web-Push einrichten |
+| **CHANGELOG.md** | Versionsliste |
 
 ---
 
-## Wichtig für GitHub (privates Repo)
+## Unterstützung
 
-- **`.env`** enthält Zugangsdaten und wird von Git **ignoriert** (steht in `.gitignore`).  
-  Nach dem Klonen immer eine eigene `.env` aus `.env.example` anlegen und mit echten Werten füllen.
-- **Supabase-Secrets** (VAPID_PRIVATE_KEY etc.) nur im Supabase-Dashboard setzen, **nie** in eine Datei im Repo schreiben.
-- Keine Ordner/Dateien wie `dmarkert.dm@gmail.com`, `react-javascript@1.0.0` oder andere Ablage-Müll ins Repo committen – nur Quellcode, Konfiguration ohne Secrets und Doku.
+Wenn dir die App nützt, freue ich mich über einen Kaffee: **[ko-fi.com/daani27](https://ko-fi.com/daani27)**
 
 ---
 
-## Technik
-
-- **Frontend:** React, Vite, React Router, PWA (Workbox)
-- **Backend:** Supabase (Auth, PostgreSQL, Edge Functions)
-- **Push:** Web Push API, VAPID, Edge Function `send-push`
-
----
-
-*WA I Kasse • PWA für Kasse, Mahlzeiten und Push*
+*Kassen App • PWA für Kasse, Mahlzeiten und Push – Branding vom Admin anpassbar*

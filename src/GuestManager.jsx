@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { supabase } from './supabaseClient'
+import { apiGetProfiles, apiCreateProfile } from './api'
 
 export default function GuestManager() {
   const [guestName, setGuestName] = useState('')
@@ -11,38 +11,25 @@ export default function GuestManager() {
   }, [])
 
   async function fetchGuests() {
-    // Wir suchen nach Profilen, die keinen Auth-Link haben oder als Gast markiert sind
-    // Hier nehmen wir zur Einfachheit alle Profile, die mit "Gast:" beginnen
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .ilike('username', 'Gast:%')
-
-    setGuests(data || [])
+    try {
+      const all = await apiGetProfiles()
+      const data = (all || []).filter((p) => (p.username || '').startsWith('Gast:'))
+      setGuests(data)
+    } catch (_) {
+      setGuests([])
+    }
   }
 
   async function createGuest() {
     if (!guestName) return
     setLoading(true)
-
-    // Wir generieren eine zufällige ID, da kein Auth-User existiert
-    const guestId = crypto.randomUUID() 
-
     try {
-      const { error } = await supabase.from('profiles').insert([{
-        id: guestId,
-        username: `Gast: ${guestName}`,
-        is_admin: false,
-        // Hier können weitere Standardwerte für Gäste rein
-      }])
-
-      if (error) throw error
-
+      await apiCreateProfile(`Gast: ${guestName}`)
       setGuestName('')
       fetchGuests()
       alert(`Gast-Konto für ${guestName} wurde angelegt.`)
     } catch (err) {
-      alert("Fehler beim Anlegen: " + err.message)
+      alert('Fehler beim Anlegen: ' + (err.data?.error || err.message))
     } finally {
       setLoading(false)
     }

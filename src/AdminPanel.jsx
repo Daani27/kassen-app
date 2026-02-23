@@ -1,21 +1,78 @@
 import { useEffect, useState } from 'react'
-import { supabase } from './supabaseClient'
+import {
+  apiGetActiveMeal,
+  apiGetRegistrationEnabled,
+  apiSetRegistrationEnabled,
+  apiGetProfiles,
+  apiGetTransactions,
+  apiCancelTransaction,
+  apiInsertTransaction,
+  apiCreateProfile,
+  apiGetFruehstueckSummary,
+  apiUpdateBranding,
+} from './api'
+import { useBranding } from './BrandingContext'
+import { sendPushToAll } from './pushNotifications'
 
-export default function AdminPanel() {
+export default function AdminPanel({ session }) {
   const [users, setUsers] = useState([])
   const [transactions, setTransactions] = useState([])
   const [loading, setLoading] = useState(true)
   const [regEnabled, setRegEnabled] = useState(true)
   const [fruehstueckSummary, setFruehstueckSummary] = useState({ normal: 0, koerner: 0, users: 0 })
+  const [openMealTitle, setOpenMealTitle] = useState(null)
 
   const [guestName, setGuestName] = useState('')
   const [guestLoading, setGuestLoading] = useState(false)
+
+  const branding = useBranding()
+  const [brandingForm, setBrandingForm] = useState({
+    app_name: '',
+    app_subtitle: '',
+    bug_report_url: '',
+    push_default_title: '',
+  })
+  const [brandingSaving, setBrandingSaving] = useState(false)
 
   useEffect(() => {
     fetchData()
     fetchSettings()
     fetchFruehstueckSummary()
   }, [])
+
+  useEffect(() => {
+    if (session) fetchOpenMeal()
+  }, [session])
+
+  useEffect(() => {
+    setBrandingForm({
+      app_name: branding.app_name || '',
+      app_subtitle: branding.app_subtitle || '',
+      bug_report_url: branding.bug_report_url || '',
+      push_default_title: branding.push_default_title || branding.app_name || '',
+    })
+  }, [branding.app_name, branding.app_subtitle, branding.bug_report_url, branding.push_default_title])
+
+  async function fetchOpenMeal() {
+    const meal = await apiGetActiveMeal()
+    setOpenMealTitle(meal?.title ?? null)
+  }
+
+  async function broadcastPush(title, body) {
+    await sendPushToAll(title, body, null)
+  }
+
+  function notifyAlmostReady() {
+    const title = openMealTitle || 'Essen'
+    if (!window.confirm("Möchtest du die 'Fast fertig'-Meldung senden?")) return
+    broadcastPush('Essen fast fertig', `Das Essen (${title}) steht in ca. 5–10 Minuten auf dem Tisch.`)
+  }
+
+  function notifyReady() {
+    const title = openMealTitle || 'Essen'
+    if (!window.confirm("Soll die 'Essen ist fertig!'-Meldung gesendet werden?")) return
+    broadcastPush('Essen ist fertig!', `Kommt in die Küche – ${title} ist serviert!`)
+  }
 
   // SICHERER GAST-LOGIN FIX FÜR ANDROID/PWA
   async function handleCreateGuest(e) {
@@ -34,48 +91,51 @@ export default function AdminPanel() {
     const newId = window.crypto?.randomUUID?.() || fallbackUUID();
 
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .insert([{ id: newId, username: finalName, is_admin: false }])
-
-      if (error) throw error
-
+      await apiCreateProfile(finalName)
       alert(`${finalName} wurde angelegt!`)
       setGuestName('')
       fetchData()
     } catch (err) {
-      alert("Fehler: " + err.message)
+      alert('Fehler: ' + (err.data?.error || err.message))
     } finally {
       setGuestLoading(false)
     }
   }
 
   async function fetchFruehstueckSummary() {
-    const today = new Date().toISOString().split('T')[0]
-    const { data, error } = await supabase
-      .from('fruehstueck_orders')
-      .select('normal_count, koerner_count')
-      .eq('date', today)
-
-    if (!error && data) {
-      const totals = data.reduce((acc, curr) => ({
-        normal: acc.normal + (curr.normal_count || 0),
-        koerner: acc.koerner + (curr.koerner_count || 0),
-        users: acc.users + 1
-      }), { normal: 0, koerner: 0, users: 0 })
-      setFruehstueckSummary(totals)
-    }
+    try {
+      const today = new Date().toISOString().split('T')[0]
+      const totals = await apiGetFruehstueckSummary(today)
+      setFruehstueckSummary(totals || { normal: 0, koerner: 0, users: 0 })
+    } catch (_) {}
   }
 
   async function fetchSettings() {
-    const { data, error } = await supabase.from('app_settings').select('value_bool').eq('id', 'registration_enabled').single()
-    if (!error && data) setRegEnabled(data.value_bool)
+    try {
+      const value = await apiGetRegistrationEnabled()
+      setRegEnabled(value)
+    } catch (_) {}
   }
 
   async function toggleRegistration() {
     const nextStatus = !regEnabled
-    const { error } = await supabase.from('app_settings').update({ value_bool: nextStatus }).eq('id', 'registration_enabled')
-    if (!error) setRegEnabled(nextStatus)
+    try {
+      await apiSetRegistrationEnabled(nextStatus)
+      setRegEnabled(nextStatus)
+    } catch (_) {}
+  }
+
+  async function saveBranding() {
+    setBrandingSaving(true)
+    try {
+      await apiUpdateBranding(brandingForm)
+      branding.refreshBranding?.()
+      alert('Branding gespeichert.')
+    } catch (e) {
+      alert('Fehler: ' + (e.data?.error || e.message))
+    } finally {
+      setBrandingSaving(false)
+    }
   }
 
   async function fetchData() {
@@ -86,8 +146,8 @@ export default function AdminPanel() {
   }
 
   async function fetchUsersAndBalances() {
-    const { data: profiles } = await supabase.from('profiles').select('id, username')
-    const { data: trans } = await supabase.from('transactions').select('user_id, amount, is_cancelled')
+    const profiles = await apiGetProfiles()
+    const trans = await apiGetTransactions(null, true)
     if (profiles) {
       const userBalances = profiles.map(p => {
         const userTrans = trans ? trans.filter(t => t.user_id === p.id && !t.is_cancelled) : []
@@ -99,33 +159,52 @@ export default function AdminPanel() {
   }
 
   async function fetchTransactionHistory() {
-    const { data, error } = await supabase.from('transactions')
-      .select('id, amount, description, created_at, is_cancelled, profiles:user_id ( username )')
-      .order('created_at', { ascending: false }).limit(100)
-    if (!error) setTransactions(data || [])
+    const data = await apiGetTransactions(null, true)
+    setTransactions((data || []).slice(0, 100))
   }
 
   async function toggleCancelTransaction(id, currentStatus) {
-    if (!window.confirm(`Buchung wirklich ${currentStatus ? "reaktivieren" : "stornieren"}?`)) return
-    const { error } = await supabase.from('transactions').update({ is_cancelled: !currentStatus }).eq('id', id)
-    if (!error) fetchData()
+    if (!window.confirm(`Buchung wirklich ${currentStatus ? 'reaktivieren' : 'stornieren'}?`)) return
+    try {
+      await apiCancelTransaction(id)
+      fetchData()
+    } catch (_) {}
   }
 
   async function handlePayment(userId, username) {
     const input = window.prompt(`Bargeld-Einzahlung für ${username}:`)
     if (!input || isNaN(input.replace(',', '.'))) return
     const amount = parseFloat(input.replace(',', '.'))
-    const { error } = await supabase.from('transactions').insert([{
-      user_id: userId, amount: amount, description: amount > 0 ? 'Bargeld-Einzahlung' : 'Manuelle Korrektur',
-      category: 'payment', is_cancelled: false
-    }])
-    if (!error) fetchData()
+    try {
+      await apiInsertTransaction({
+        user_id: userId,
+        amount,
+        description: amount > 0 ? 'Bargeld-Einzahlung' : 'Manuelle Korrektur',
+        category: 'payment',
+      })
+      fetchData()
+    } catch (_) {}
   }
 
   if (loading) return <p style={{ padding: '24px', textAlign: 'center', color: '#6b7280' }}>Lade Admin-Daten...</p>
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', paddingBottom: '40px' }}>
+
+      {/* RUF-FUNKTIONEN (immer verfügbar) */}
+      <div style={{ ...cardStyle, borderLeft: '6px solid #f59e0b', background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)' }}>
+        <h3 style={{ margin: '0 0 8px 0', fontSize: '1rem' }}>🔔 Ruf-Funktionen</h3>
+        {openMealTitle && <p style={{ margin: 0, fontSize: '0.8rem', color: '#92400e' }}>Offene Mahlzeit: {openMealTitle}</p>}
+        {!openMealTitle && <p style={{ margin: 0, fontSize: '0.8rem', color: '#b45309' }}>Keine offene Mahlzeit – Push geht mit „Essen“ als Titel.</p>}
+        <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
+          <button onClick={notifyAlmostReady} style={{ ...actionBtnStyle, backgroundColor: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d' }}>
+            ⏳ Fast fertig
+          </button>
+          <button onClick={notifyReady} style={{ ...actionBtnStyle, backgroundColor: '#dcfce7', color: '#166534', border: '1px solid #86efac' }}>
+            🔔 Essen fertig!
+          </button>
+        </div>
+      </div>
 
       {/* GAST ANLEGEN SEKTION */}
       <div style={{ ...cardStyle, borderLeft: '6px solid #6366f1' }}>
@@ -184,6 +263,59 @@ export default function AdminPanel() {
         </div>
       </div>
 
+      {/* BRANDING / APP-NAME (generisch anpassbar) */}
+      <div style={{ ...cardStyle, borderLeft: '6px solid #8b5cf6' }}>
+        <h3 style={{ margin: '0 0 12px 0', fontSize: '1rem' }}>🏷️ App-Name & Branding</h3>
+        <p style={{ margin: '0 0 12px 0', fontSize: '0.8rem', color: '#6b7280' }}>
+          Erscheint auf Login, in der App und in Push-Benachrichtigungen. Leer = generischer Name „Kasse“.
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <div>
+            <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '700', color: '#4b5563', marginBottom: '4px' }}>App-Name (z. B. „Kasse WA I“)</label>
+            <input
+              type="text"
+              value={brandingForm.app_name}
+              onChange={(e) => setBrandingForm((f) => ({ ...f, app_name: e.target.value }))}
+              placeholder="Kasse"
+              style={brandingInputStyle}
+            />
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '700', color: '#4b5563', marginBottom: '4px' }}>Untertitel (z. B. „Wachabteilung I • Lippstadt“)</label>
+            <input
+              type="text"
+              value={brandingForm.app_subtitle}
+              onChange={(e) => setBrandingForm((f) => ({ ...f, app_subtitle: e.target.value }))}
+              placeholder=""
+              style={brandingInputStyle}
+            />
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '700', color: '#4b5563', marginBottom: '4px' }}>Link „Bug melden“ (optional)</label>
+            <input
+              type="url"
+              value={brandingForm.bug_report_url}
+              onChange={(e) => setBrandingForm((f) => ({ ...f, bug_report_url: e.target.value }))}
+              placeholder="https://…"
+              style={brandingInputStyle}
+            />
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '700', color: '#4b5563', marginBottom: '4px' }}>Standard-Titel für Push (wenn leer)</label>
+            <input
+              type="text"
+              value={brandingForm.push_default_title}
+              onChange={(e) => setBrandingForm((f) => ({ ...f, push_default_title: e.target.value }))}
+              placeholder="Kasse"
+              style={brandingInputStyle}
+            />
+          </div>
+          <button onClick={saveBranding} disabled={brandingSaving} style={{ ...actionBtnStyle, backgroundColor: '#8b5cf6', color: 'white', alignSelf: 'flex-start' }}>
+            {brandingSaving ? 'Speichern…' : 'Branding speichern'}
+          </button>
+        </div>
+      </div>
+
       {/* SCHULDENLISTE */}
       <div style={cardStyle}>
         <h3 style={{ marginTop: 0, marginBottom: '16px', fontSize: '1.1rem' }}>📊 Salden-Übersicht</h3>
@@ -226,7 +358,7 @@ export default function AdminPanel() {
               opacity: t.is_cancelled ? 0.4 : 1
             }}>
               <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{t.profiles?.username || 'System'}</div>
+                <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{t.user_username || 'System'}</div>
                 <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>
                   {new Date(t.created_at).toLocaleDateString('de-DE')} • {t.description}
                 </div>
@@ -252,6 +384,7 @@ export default function AdminPanel() {
 }
 
 const cardStyle = { padding: '20px', borderRadius: '20px', backgroundColor: '#fff', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', border: '1px solid #f3f4f6' }
+const brandingInputStyle = { width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid #e5e7eb', fontSize: '0.95rem', boxSizing: 'border-box' }
 const statBoxStyle = { padding: '12px', background: 'rgba(255,255,255,0.6)', borderRadius: '14px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.8)' }
 const statLabelStyle = { display: 'block', fontSize: '0.65rem', color: '#64748b', textTransform: 'uppercase', fontWeight: '700', marginBottom: '4px' }
 const statValueStyle = { fontSize: '1.4rem', fontWeight: '800', color: '#0f172a' }

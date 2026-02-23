@@ -1,6 +1,6 @@
 /* eslint-env serviceworker */
 /**
- * Custom Service Worker für WA I KASSE: Precaching + Web-Push.
+ * Custom Service Worker: Precaching + Web-Push.
  * Wird von vite-plugin-pwa per injectManifest gebaut; __WB_MANIFEST wird injiziert.
  * skipWaiting nur auf Nachricht SKIP_WAITING (Klick auf "Jetzt aktualisieren"), sonst Reload-Schleife.
  * SW_VERSION wird beim Build aus package.json ersetzt.
@@ -23,7 +23,7 @@ self.addEventListener('message', (event) => {
 })
 
 self.addEventListener('push', (event) => {
-  let title = 'WA I Kasse'
+  let title = 'Kasse'
   let body = ''
   if (event.data) {
     try {
@@ -38,7 +38,7 @@ self.addEventListener('push', (event) => {
   }
   const options = {
     body: body || ' ',
-    tag: 'wai-kasse-push',
+    tag: 'kasse-push',
     renotify: true
   }
   event.waitUntil(

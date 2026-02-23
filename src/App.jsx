@@ -1,31 +1,54 @@
 import { useEffect, useState } from 'react'
 import { Routes, Route } from 'react-router-dom'
-import { supabase } from './supabaseClient'
+import { getStoredSession, apiGetSession } from './api'
+import { useBranding } from './BrandingContext'
 import Login from './Login'
 import Dashboard from './Dashboard'
 import GastPage from './GastPage'
+import PwaInstallBanner from './PwaInstallBanner'
 
-// Die Version wird automatisch aus der package.json geladen (dank der vite.config.js Anpassung)
-const APP_VERSION = import.meta.env.PACKAGE_VERSION || '2.0.0';
+const APP_VERSION = import.meta.env.PACKAGE_VERSION || '2.0.0'
 
 function App() {
   const [session, setSession] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const branding = useBranding()
 
   useEffect(() => {
-    // 1. Initiale Session prüfen
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-    })
-
-    // 2. Auf Auth-Statusänderungen hören
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session)
-    })
-
-    return () => subscription.unsubscribe()
+    const init = async () => {
+      const stored = getStoredSession()
+      if (stored?.token) {
+        try {
+          const data = await apiGetSession()
+          if (data) setSession({ user: data.user, token: data.token })
+          else setSession(null)
+        } catch {
+          setSession(null)
+        }
+      } else {
+        setSession(null)
+      }
+      setLoading(false)
+    }
+    init()
   }, [])
 
-  // Gemeinsame Footer-Komponente: Version links, Bug-Report rechts
+  useEffect(() => {
+    document.title = branding.app_name ? `${branding.app_name}` : 'Kasse'
+  }, [branding.app_name])
+
+  const setSessionFromLogin = (newSession) => {
+    setSession(newSession)
+  }
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#f9fafb', color: '#9ca3af' }}>
+        <p>Wird geladen...</p>
+      </div>
+    )
+  }
+
   const VersionFooter = () => (
     <footer style={{
       display: 'flex',
@@ -37,17 +60,29 @@ function App() {
       fontFamily: 'monospace',
       backgroundColor: 'transparent'
     }}>
-      <span>WA I KASSE • v{APP_VERSION}</span>
-      <a
-        href="https://markertcloud.de/index.php/apps/forms/s/K2cSDcdjP47fF9zH6HPBnkMM"
-        target="_blank"
-        rel="noopener noreferrer"
-        style={{ color: '#9ca3af', textDecoration: 'none' }}
-      >
-        Bug melden
-      </a>
+      <span>{branding.app_name || 'Kasse'} • v{APP_VERSION}</span>
+      <span style={{ display: 'flex', gap: '12px' }}>
+        <a
+          href="https://ko-fi.com/daani27"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: '#9ca3af', textDecoration: 'none' }}
+        >
+          Unterstützen
+        </a>
+        {branding.bug_report_url ? (
+          <a
+            href={branding.bug_report_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: '#9ca3af', textDecoration: 'none' }}
+          >
+            Bug melden
+          </a>
+        ) : null}
+      </span>
     </footer>
-  );
+  )
 
   return (
     <>
@@ -58,12 +93,14 @@ function App() {
           element={
             !session ? (
               <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-                <div style={{ flex: 1 }}><Login /></div>
+                <PwaInstallBanner />
+                <div style={{ flex: 1 }}><Login onLogin={setSessionFromLogin} /></div>
                 <VersionFooter />
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-                <div style={{ flex: 1 }}><Dashboard session={session} /></div>
+                <PwaInstallBanner />
+                <div style={{ flex: 1 }}><Dashboard session={session} onLogout={() => setSession(null)} /></div>
                 <VersionFooter />
               </div>
             )

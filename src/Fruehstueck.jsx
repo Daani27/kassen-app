@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { supabase } from './supabaseClient'
+import { apiGetProfiles, apiGetFruehstueckOrder, apiUpsertFruehstueckOrder } from './api'
 
 const SAVE_DEBOUNCE_MS = 500
 const SAVE_DEBOUNCE_MS_IOS = 900
@@ -52,72 +52,48 @@ export default function Fruehstueck({ session, isAdmin, onUpdate }) {
   }
 
   async function fetchProfiles() {
-    const { data } = await supabase.from('profiles').select('id, username').order('username')
-    if (data) setProfiles(data)
+    try {
+      const data = await apiGetProfiles()
+      if (data) setProfiles(data)
+    } catch (_) {}
   }
 
   async function fetchOrderForUser(userId) {
     try {
       const today = new Date().toISOString().split('T')[0]
-      const { data } = await supabase
-        .from('fruehstueck_orders')
-        .select('normal_count, koerner_count')
-        .eq('user_id', userId)
-        .eq('date', today)
-        .maybeSingle()
-
+      const data = await apiGetFruehstueckOrder(today, userId)
       if (data) {
-        setCounts({ 
-          normal: data.normal_count || 0, 
-          koerner: data.koerner_count || 0 
+        setCounts({
+          normal: data.normal_count || 0,
+          koerner: data.koerner_count || 0,
         })
       } else {
         setCounts({ normal: 0, koerner: 0 })
       }
     } catch (e) {
-      console.error("Ladefehler:", e)
+      console.error('Ladefehler:', e)
     }
   }
 
   async function persistOrder(toSave) {
     if (!toSave || savingRef.current) return
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current)
+      saveTimeoutRef.current = null
+    }
     savingRef.current = true
     setSaving(true)
     const savedSnapshot = { ...toSave }
     try {
       const today = new Date().toISOString().split('T')[0]
-      const totalAmount = (toSave.normal * PREIS_NORMAL) + (toSave.koerner * PREIS_KOERNER)
-
-      const { error: orderError } = await supabase
-        .from('fruehstueck_orders')
-        .upsert({
-          user_id: targetUserId,
-          date: today,
-          normal_count: toSave.normal,
-          koerner_count: toSave.koerner,
-          updated_at: new Date().toISOString()
-        }, { onConflict: 'user_id, date' })
-      if (orderError) throw orderError
-
-      const { error: deleteError } = await supabase
-        .from('transactions')
-        .delete()
-        .eq('user_id', targetUserId)
-        .eq('category', 'breakfast')
-        .gte('created_at', today)
-      if (deleteError) throw deleteError
-
-      if (totalAmount > 0) {
-        const { error: insertError } = await supabase
-          .from('transactions')
-          .insert([{
-            user_id: targetUserId,
-            amount: -totalAmount,
-            description: `Frühstück: ${toSave.normal}x Normal, ${toSave.koerner}x Körner`,
-            category: 'breakfast'
-          }])
-        if (insertError) throw insertError
-      }
+      // Wichtig: Zuerst alle Frühstücks-Buchungen von heute löschen (RLS erlaubt Nutzern eigenes „breakfast“ von heute).
+      // Sonst entstehen Mehrfachbuchungen, wenn man später noch ein Brötchen dazu bucht.
+      await apiUpsertFruehstueckOrder({
+        user_id: targetUserId,
+        date: today,
+        normal_count: toSave.normal,
+        koerner_count: toSave.koerner,
+      })
       if (onUpdate) onUpdate()
     } catch (e) {
       console.error('Speicherfehler:', e)

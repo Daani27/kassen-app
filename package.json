@@ -1,8 +1,8 @@
 {
-  "name": "react-javascript",
-  "version": "2.1.9",
+  "name": "kassen-app",
+  "version": "2.2.1",
   "type": "module",
-  "description": "React TypeScript on Replit, using Vite bundler",
+  "description": "Kassen App – PWA für Kasse, Mahlzeiten und Push",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -23,7 +23,7 @@
     "workbox-precaching": "^7.4.0"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.95.3",
+    
     "jspdf": "^4.1.0",
     "jspdf-autotable": "^5.0.7",
     "lucide-react": "^0.563.0",

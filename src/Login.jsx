@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
-import { supabase } from './supabaseClient'
+import { apiLogin, apiRegister, apiGetRegistrationEnabled } from './api'
+import { useBranding } from './BrandingContext'
 
-export default function Login() {
+export default function Login({ onLogin }) {
+  const branding = useBranding()
   const [loading, setLoading] = useState(false)
   const [isRegEnabled, setIsRegEnabled] = useState(true)
   const [showMagicLink, setShowMagicLink] = useState(false)
@@ -15,15 +17,10 @@ export default function Login() {
   }, [])
 
   async function checkRegistrationStatus() {
-    const { data, error } = await supabase
-      .from('app_settings')
-      .select('value_bool')
-      .eq('id', 'registration_enabled')
-      .single()
-
-    if (!error && data) {
-      setIsRegEnabled(data.value_bool)
-    }
+    try {
+      const value = await apiGetRegistrationEnabled()
+      setIsRegEnabled(value)
+    } catch (_) {}
   }
 
   const handleLogin = async () => {
@@ -31,8 +28,12 @@ export default function Login() {
     const password = passwordInputRef.current?.value ?? ''
     if (!email || !password) return alert('E-Mail und Passwort eingeben.')
     setLoading(true)
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) alert('Fehler: ' + error.message)
+    try {
+      const session = await apiLogin(email, password)
+      if (onLogin) onLogin(session)
+    } catch (e) {
+      alert('Fehler: ' + (e.data?.error || e.message))
+    }
     setLoading(false)
   }
 
@@ -42,9 +43,13 @@ export default function Login() {
     const password = passwordInputRef.current?.value ?? ''
     if (!email || !password) return alert('E-Mail und Passwort eingeben.')
     setLoading(true)
-    const { error } = await supabase.auth.signUp({ email, password })
-    if (error) alert('Fehler: ' + error.message)
-    else alert('Registrierung erfolgreich! Du kannst dich jetzt einloggen.')
+    try {
+      const session = await apiRegister(email, password)
+      alert('Registrierung erfolgreich! Du kannst dich jetzt einloggen.')
+      if (onLogin) onLogin(session)
+    } catch (e) {
+      alert('Fehler: ' + (e.data?.error || e.message))
+    }
     setLoading(false)
   }
 
@@ -52,19 +57,7 @@ export default function Login() {
     e.preventDefault()
     const magicEmail = magicEmailInputRef.current?.value?.trim() ?? ''
     if (!magicEmail) return alert('Bitte E-Mail eingeben!')
-
-    setLoading(true)
-    const { error } = await supabase.auth.signInWithOtp({
-      email: magicEmail,
-      options: { emailRedirectTo: window.location.origin },
-    })
-    if (error) {
-      alert('Fehler: ' + error.message)
-    } else {
-      alert('Anmelde-Link wurde gesendet! Bitte schau in dein Postfach.')
-      setShowMagicLink(false)
-    }
-    setLoading(false)
+    alert('Magic-Link-Login ist mit eigener Datenbank nicht verfügbar. Bitte Passwort-Login nutzen.')
   }
 
   return (
@@ -74,11 +67,10 @@ export default function Login() {
           <span style={{ fontSize: '2.5rem' }}>🚒</span>
         </div>
 
-        <h2 style={titleStyle}>Kasse WA I</h2>
-        <p style={subtitleStyle}>Wachabteilung I • Lippstadt</p>
+        <h2 style={titleStyle}>{branding.app_name || 'Kasse'}</h2>
+        {branding.app_subtitle ? <p style={subtitleStyle}>{branding.app_subtitle}</p> : null}
 
         {!showMagicLink ? (
-          /* --- NORMALER LOGIN --- */
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '20px' }}>
             <div style={inputWrapperStyle}>
               <input
@@ -145,10 +137,9 @@ export default function Login() {
             )}
           </div>
         ) : (
-          /* --- MAGIC LINK ANSICHT --- */
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '20px' }}>
             <h4 style={{ margin: '0', color: '#111827' }}>Link anfordern</h4>
-            <p style={{ ...subtitleStyle, fontSize: '0.8rem' }}>Wir senden dir einen Link, mit dem du dich sofort ohne Passwort einloggen kannst.</p>
+            <p style={{ ...subtitleStyle, fontSize: '0.8rem' }}>Mit eigener Datenbank wird nur Passwort-Login unterstützt.</p>
             <input
               ref={magicEmailInputRef}
               type="email"
@@ -161,7 +152,7 @@ export default function Login() {
               disabled={loading}
               style={{ ...btnStyle, backgroundColor: '#6366f1', color: 'white' }}
             >
-              Link senden
+              Hinweis anzeigen
             </button>
             <button 
               onClick={() => setShowMagicLink(false)} 
@@ -180,7 +171,6 @@ export default function Login() {
   )
 }
 
-// STYLES
 const pageWrapperStyle = { backgroundColor: '#f8fafc', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif', padding: '20px' }
 const loginCardStyle = { backgroundColor: '#fff', padding: '40px 30px', borderRadius: '32px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.05), 0 10px 10px -5px rgba(0,0,0,0.02)', width: '100%', maxWidth: '400px', textAlign: 'center', border: '1px solid #f1f5f9' }
 const iconContainerStyle = { width: '70px', height: '70px', backgroundColor: '#fef2f2', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px auto', border: '1px solid #fee2e2' }

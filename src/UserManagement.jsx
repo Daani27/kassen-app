@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { supabase } from './supabaseClient'
+import { apiGetProfiles, apiUpdateProfileAdmin, apiDeleteProfile } from './api'
 
 export default function UserManagement() {
   const [users, setUsers] = useState([])
@@ -9,25 +9,29 @@ export default function UserManagement() {
   useEffect(() => { fetchUsers() }, [])
 
   async function fetchUsers() {
-    const { data } = await supabase.from('profiles').select('*').order('username')
-    setUsers(data || [])
+    try {
+      const data = await apiGetProfiles()
+      setUsers(data || [])
+    } catch (_) {}
     setLoading(false)
   }
 
   async function toggleAdmin(id, status) {
-    const { error } = await supabase.from('profiles').update({ is_admin: !status }).eq('id', id)
-    if (error) alert("Fehler beim Ändern der Rechte.")
-    else fetchUsers()
+    try {
+      await apiUpdateProfileAdmin(id, !status)
+      fetchUsers()
+    } catch {
+      alert('Fehler beim Ändern der Rechte.')
+    }
   }
 
   async function deleteUser(id, name) {
     if (!window.confirm(`${name} wirklich entfernen? Achtung: Falls der Nutzer bereits Transaktionen hat, wird das Löschen vom System verhindert.`)) return
-
-    const { error } = await supabase.from('profiles').delete().eq('id', id)
-    if (error) {
-      alert("Löschen fehlgeschlagen: Der Nutzer ist noch mit Buchungen verknüpft (Integritätsschutz).")
-    } else {
+    try {
+      await apiDeleteProfile(id)
       fetchUsers()
+    } catch (e) {
+      alert('Löschen fehlgeschlagen: ' + (e.data?.error || e.message))
     }
   }
 
@@ -70,6 +74,9 @@ export default function UserManagement() {
               <div>
                 <div style={usernameStyle}>{u.username}</div>
                 {u.is_admin && <span style={adminBadgeStyle}>ADMIN</span>}
+                <div style={versionStyle}>
+                  {u.last_app_version ? `App v${u.last_app_version}` : '—'}
+                </div>
               </div>
             </div>
 
@@ -139,6 +146,8 @@ const avatarStyle = {
 }
 
 const usernameStyle = { fontSize: '0.95rem', fontWeight: '700', color: '#1e293b' }
+
+const versionStyle = { fontSize: '0.7rem', color: '#94a3b8', marginTop: '2px' }
 
 const adminBadgeStyle = { 
   fontSize: '0.6rem', 

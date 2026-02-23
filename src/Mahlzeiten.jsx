@@ -1,5 +1,16 @@
 import { useEffect, useState } from 'react'
-import { supabase } from './supabaseClient'
+import {
+  apiGetActiveMeal,
+  apiGetProfiles,
+  apiGetGlobalExpenses,
+  apiDeleteMealGuestEntry,
+  apiInsertTransaction,
+  apiUpdateMeal,
+  apiAddMealParticipant,
+  apiRemoveMealParticipant,
+  apiCreateMeal,
+  apiDeleteMeal,
+} from './api'
 import { sendPushToAll } from './pushNotifications'
 
 export default function Mahlzeiten({ session, onUpdate }) {
@@ -32,66 +43,51 @@ export default function Mahlzeiten({ session, onUpdate }) {
   }, [isAdmin])
 
   async function broadcastPush(title, body) {
-    const { data: { session } } = await supabase.auth.refreshSession()
-    if (session) sendPushToAll(title, body, session)
+    await sendPushToAll(title, body, null)
   }
 
   async function checkAdminStatus() {
-    try {
-      const { data } = await supabase.from('profiles').select('is_admin').eq('id', session.user.id).maybeSingle()
-      if (data) setIsAdmin(data.is_admin)
-    } catch (e) { console.error(e) }
+    setIsAdmin(!!session?.user?.is_admin)
   }
 
   async function fetchProfiles() {
-    const { data } = await supabase.from('profiles').select('id, username').order('username')
-    if (data) setProfiles(data)
+    try {
+      const data = await apiGetProfiles()
+      if (data) setProfiles(data)
+    } catch (e) { console.error(e) }
   }
 
   async function fetchActiveMeal() {
     setLoading(true)
     try {
-      const { data, error } = await supabase
-        .from('meals')
-        .select(`*, meal_participants(user_id, profiles(username))`)
-        .eq('status', 'open')
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-
-      if (data && data.length > 0) {
-        const meal = data[0];
+      const meal = await apiGetActiveMeal()
+      if (meal) {
         setActiveMeal(meal)
-        setIsJoined(meal.meal_participants.some(p => p.user_id === session.user.id))
-
-        const { data: guests } = await supabase
-          .from('meal_guest_entries')
-          .select('id, guest_name, amount, created_at')
-          .eq('meal_id', meal.id)
-          .order('created_at', { ascending: true })
-        setGuestEntries(guests || [])
-
-        const { data: expenses } = await supabase
-          .from('global_expenses')
-          .select('amount')
-          .eq('shift_date', meal.meal_date)
-          .eq('category', 'abendessen')
-          .eq('is_cancelled', false)
-
-        if (expenses && expenses.length > 0) {
-          const sum = expenses.reduce((acc, curr) => acc + Math.abs(Number(curr.amount)), 0)
+        setIsJoined((meal.meal_participants || []).some(p => p.user_id === session.user.id))
+        setGuestEntries(meal.meal_guest_entries || [])
+        const mealDate = String(meal.meal_date).slice(0, 10)
+        const expenses = await apiGetGlobalExpenses({ category: 'abendessen', shift_date: mealDate })
+        const sum = (expenses || []).reduce((acc, curr) => acc + Math.abs(Number(curr.amount)), 0)
+        if (meal.total_cost != null && meal.total_cost > 0) {
+          setTotalCost(Number(meal.total_cost).toString())
+        } else {
           setTotalCost(sum.toString())
         }
-      } else { setActiveMeal(null); setGuestEntries([]) }
-    } catch (e) { console.error("Fehler: " + e.message) }
+      } else {
+        setActiveMeal(null)
+        setGuestEntries([])
+      }
+    } catch (e) { console.error('Fehler:', e.message) }
     setLoading(false)
   }
 
   async function removeGuestEntry(entryId) {
     if (!window.confirm('Gästeeintrag wirklich entfernen?')) return
-    const { error } = await supabase.from('meal_guest_entries').delete().eq('id', entryId)
-    if (!error) { fetchActiveMeal(); if (onUpdate) onUpdate() }
-    else alert('Fehler: ' + error.message)
+    try {
+      await apiDeleteMealGuestEntry(entryId)
+      fetchActiveMeal()
+      if (onUpdate) onUpdate()
+    } catch (e) { alert('Fehler: ' + (e.data?.error || e.message)) }
   }
 
   async function settleMeal() {
@@ -145,15 +141,10 @@ export default function Mahlzeiten({ session, onUpdate }) {
         });
       });
 
-      const { error: transError } = await supabase.from('transactions').insert(allTransactions);
-      if (transError) throw transError;
-
-      const { error: mealError } = await supabase.from('meals').update({ 
-        status: 'closed', 
-        total_cost: cost, 
-        cost_per_person: ppp 
-      }).eq('id', activeMeal.id);
-      if (mealError) throw mealError;
+      for (const t of allTransactions) {
+        await apiInsertTransaction(t)
+      }
+      await apiUpdateMeal(activeMeal.id, { status: 'closed', total_cost: cost, cost_per_person: ppp })
 
       const sponsorName = profiles.find(p => p.id === sponsorUserId)?.username
       let body = `Essen abgerechnet: ${activeMeal.title}. Restkosten: ${ppp.toFixed(2)}€ pro Kopf.`
@@ -170,65 +161,61 @@ export default function Mahlzeiten({ session, onUpdate }) {
   }
 
   async function joinMeal() {
-    if (activeMeal.meal_participants.some(p => p.user_id === session.user.id)) return;
-    await supabase.from('meal_participants').insert([{ meal_id: activeMeal.id, user_id: session.user.id }])
+    if ((activeMeal.meal_participants || []).some(p => p.user_id === session.user.id)) return
+    await apiAddMealParticipant(activeMeal.id)
     fetchActiveMeal()
-    if (onUpdate) onUpdate();
+    if (onUpdate) onUpdate()
   }
 
   async function addParticipantAsAdmin() {
-    if (!targetUserId) return alert("Bitte wähle einen Kameraden aus.");
+    if (!targetUserId) return alert('Bitte wähle einen Kameraden aus.')
     try {
-      await supabase.from('meal_participants').insert([{ meal_id: activeMeal.id, user_id: targetUserId }]);
-      setTargetUserId('');
-      fetchActiveMeal();
-      if (onUpdate) onUpdate();
-    } catch (e) { alert("Fehler: " + e.message); }
+      await apiAddMealParticipant(activeMeal.id, targetUserId)
+      setTargetUserId('')
+      fetchActiveMeal()
+      if (onUpdate) onUpdate()
+    } catch (e) { alert('Fehler: ' + (e.data?.error || e.message)) }
   }
 
-  async function leaveMeal() { await removeParticipant(session.user.id); }
+  async function saveMealDisplayCost() {
+    if (!activeMeal) return
+    const val = parseFloat(totalCost)
+    if (isNaN(val) || val < 0) return alert('Bitte einen gültigen Betrag (≥ 0) eintragen.')
+    try {
+      await apiUpdateMeal(activeMeal.id, { total_cost: val })
+      alert('Anzeige aktualisiert. Die Kosten pro Person werden damit neu berechnet.')
+      if (onUpdate) onUpdate()
+    } catch (e) { alert('Fehler: ' + (e.data?.error || e.message)) }
+  }
+
+  async function leaveMeal() { await removeParticipant(session.user.id) }
 
   async function removeParticipant(participantUserId) {
     try {
-      await supabase.from('meal_participants').delete().eq('meal_id', activeMeal.id).eq('user_id', participantUserId);
-      fetchActiveMeal();
-      if (onUpdate) onUpdate();
-    } catch (e) { alert("Fehler: " + e.message); }
+      await apiRemoveMealParticipant(activeMeal.id, participantUserId)
+      fetchActiveMeal()
+      if (onUpdate) onUpdate()
+    } catch (e) { alert('Fehler: ' + (e.data?.error || e.message)) }
   }
 
   async function createMeal() {
-    const title = window.prompt("Was gibt es zu essen?")
+    const title = window.prompt('Was gibt es zu essen?')
     if (!title) return
-    const { error } = await supabase.from('meals').insert([{ title, meal_date: new Date().toISOString().split('T')[0], created_by: session.user.id, status: 'open' }])
-    if (!error) {
+    try {
+      await apiCreateMeal(title)
       broadcastPush('Neue Mahlzeit', `Heute gibt es: ${title}. Tragt euch bitte in der App ein!`)
       fetchActiveMeal()
-    }
+    } catch (e) { alert('Fehler: ' + (e.data?.error || e.message)) }
   }
 
   async function deleteMeal() {
-    if (!window.confirm(`Liste "${activeMeal.title}" wirklich löschen?`)) return;
+    if (!window.confirm(`Liste "${activeMeal.title}" wirklich löschen?`)) return
     try {
-      await supabase.from('meal_participants').delete().eq('meal_id', activeMeal.id);
-      await supabase.from('meals').delete().eq('id', activeMeal.id);
-      setActiveMeal(null);
-      fetchActiveMeal();
-      if (onUpdate) onUpdate();
-    } catch (e) { alert("Fehler: " + e.message); }
-  }
-
-  function notifyAlmostReady() {
-    if (!activeMeal) return
-    if (window.confirm("Möchtest du die 'Fast fertig'-Meldung senden?")) {
-      broadcastPush('Essen fast fertig', `Das Essen (${activeMeal.title}) steht in ca. 5–10 Minuten auf dem Tisch.`)
-    }
-  }
-
-  function notifyReady() {
-    if (!activeMeal) return
-    if (window.confirm("Soll die 'Essen ist fertig!'-Meldung gesendet werden?")) {
-      broadcastPush('Essen ist fertig!', `Kommt in die Küche – ${activeMeal.title} ist serviert!`)
-    }
+      await apiDeleteMeal(activeMeal.id)
+      setActiveMeal(null)
+      fetchActiveMeal()
+      if (onUpdate) onUpdate()
+    } catch (e) { alert('Fehler: ' + (e.data?.error || e.message)) }
   }
 
   if (loading) return <div style={cardStyle}>Lade Mahlzeiten...</div>
@@ -277,12 +264,6 @@ export default function Mahlzeiten({ session, onUpdate }) {
 
           {isAdmin && (
             <div style={adminSectionStyle}>
-              <div style={adminDividerStyle}>RUF-FUNKTIONEN</div>
-              <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
-                <button onClick={notifyAlmostReady} style={almostReadyBtnStyle}>⏳ Fast fertig</button>
-                <button onClick={notifyReady} style={readyBtnStyle}>🔔 Essen fertig!</button>
-              </div>
-
               <div style={adminDividerStyle}>ABRECHNUNG & ZUSCHUSS</div>
 
               {/* Zeile 1: Zuschussgeber und Betrag */}
@@ -304,8 +285,8 @@ export default function Mahlzeiten({ session, onUpdate }) {
                 />
               </div>
 
-              {/* Zeile 2: Einkaufspreis & Abschluss */}
-              <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+              {/* Zeile 2: Einkaufspreis, nur Anzeige aktualisieren & Abschluss */}
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
                 <input 
                   type="number" 
                   placeholder="Einkauf €" 
@@ -313,6 +294,9 @@ export default function Mahlzeiten({ session, onUpdate }) {
                   onChange={(e) => setTotalCost(e.target.value)} 
                   style={costInputStyle} 
                 />
+                <button onClick={saveMealDisplayCost} style={{ ...settleBtnStyle, backgroundColor: '#6366f1' }} title="Nur Kosten-Anzeige pro Person aktualisieren, ohne abzurechnen">
+                  Anzeige aktualisieren
+                </button>
                 <button onClick={settleMeal} style={settleBtnStyle}>Abschließen</button>
               </div>
 
@@ -377,10 +361,8 @@ const adminDividerStyle = { fontSize: '0.65rem', fontWeight: '900', color: '#94a
 const selectStyle = { flex: 1, padding: '10px', borderRadius: '12px', border: '1px solid #e2e8f0', backgroundColor: '#f8fafc' }
 const addBtnStyle = { padding: '0 15px', borderRadius: '12px', border: 'none', backgroundColor: '#f59e0b', color: 'white', fontWeight: 'bold', cursor: 'pointer' }
 const costInputStyle = { width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0', backgroundColor: '#f8fafc' }
-const settleBtnStyle = { padding: '0 20px', borderRadius: '12px', border: 'none', backgroundColor: '#10b981', color: 'white', fontWeight: 'bold', cursor: 'pointer' }
+const settleBtnStyle = { padding: '12px 26px', borderRadius: '12px', border: 'none', backgroundColor: '#10b981', color: 'white', fontWeight: 'bold', fontSize: '0.95rem', cursor: 'pointer' }
 const createBtnStyle = { padding: '6px 14px', backgroundColor: '#0f172a', color: 'white', border: 'none', borderRadius: '10px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer' }
-const almostReadyBtnStyle = { flex: 1, padding: '10px', backgroundColor: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem' }
-const readyBtnStyle = { flex: 1, padding: '10px', backgroundColor: '#dcfce7', color: '#166534', border: '1px solid #86efac', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem' }
 const modalOverlayStyle = { position: 'fixed', inset: 0, backgroundColor: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }
 const modalContentStyle = { backgroundColor: '#fff', width: '90%', maxWidth: '400px', borderRadius: '28px', padding: '24px' }
 const modalHeaderStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }

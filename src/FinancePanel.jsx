@@ -1,5 +1,13 @@
 import { useState, useEffect } from 'react'
-import { supabase } from './supabaseClient'
+import {
+  apiGetTransactions,
+  apiGetGlobalExpenses,
+  apiGetProfiles,
+  apiCancelTransaction,
+  apiCancelGlobalExpense,
+  apiInsertTransaction,
+  apiInsertGlobalExpense,
+} from './api'
 import { sendPushToAll } from './pushNotifications'
 
 export default function FinancePanel({ session, isAdmin }) {
@@ -14,24 +22,23 @@ export default function FinancePanel({ session, isAdmin }) {
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [filterAmount, setFilterAmount] = useState('') // "pos" | "neg" | ""
+  const [profilesList, setProfilesList] = useState([])
+  const [personExpenseUserId, setPersonExpenseUserId] = useState('')
+  const [personExpenseAmount, setPersonExpenseAmount] = useState('')
+  const [personExpenseDesc, setPersonExpenseDesc] = useState('')
 
   useEffect(() => {
     if (isAdmin) fetchFinanceData()
   }, [isAdmin])
 
   async function notifyCashOpen() {
-    const confirmSend = window.confirm("Benachrichtigung senden, dass die Kasse zur Einzahlung offen ist?")
+    const confirmSend = window.confirm('Benachrichtigung senden, dass die Kasse zur Einzahlung offen ist?')
     if (!confirmSend) return
-    const { data: { session }, error } = await supabase.auth.refreshSession()
-    if (error || !session) {
-      alert('Session abgelaufen – bitte erneut anmelden.')
-      return
-    }
-    const result = await sendPushToAll('Kasse ist offen', 'Wer sein Konto aufladen möchte: Die Kasse ist jetzt besetzt. Kommt vorbei!', session)
+    const result = await sendPushToAll('Kasse ist offen', 'Wer sein Konto aufladen möchte: Die Kasse ist jetzt besetzt. Kommt vorbei!', null)
     if (result.ok) {
       let msg = result.sent > 0 ? `Push an ${result.sent} Gerät(e) gesendet.${result.failed > 0 ? ` (${result.failed} fehlgeschlagen.)` : ''}` : 'Keine Geräte mit aktivierten Push-Benachrichtigungen. Nutzer müssen in den Einstellungen „Push aktivieren“.'
       if (result.hint) msg += '\n\n' + result.hint
-      if (result.vapid_debug) msg += `\n\n[Diagnose] Subject: ${result.vapid_debug.subject} | Key-Präfix (Supabase): ${result.vapid_debug.publicKeyPrefix} (sollte = Anfang von VITE_VAPID_PUBLIC_KEY in .env)`
+      if (result.vapid_debug) msg += `\n\n[Diagnose] Subject: ${result.vapid_debug.subject} | Key-Präfix: ${result.vapid_debug.publicKeyPrefix} (sollte = Anfang von VITE_VAPID_PUBLIC_KEY in .env)`
       alert(msg)
     } else alert('Push fehlgeschlagen: ' + (result.error || 'Unbekannter Fehler'))
   }
@@ -49,12 +56,15 @@ export default function FinancePanel({ session, isAdmin }) {
   async function fetchFinanceData() {
     try {
       const today = new Date().toISOString().split('T')[0]
-      const { data: userTrans } = await supabase.from('transactions').select('*')
-      const { data: globalExp } = await supabase.from('global_expenses').select('*')
-      const { data: profiles } = await supabase.from('profiles').select('id, username')
+      const userTrans = await apiGetTransactions(null, true)
+      const globalExp = await apiGetGlobalExpenses()
+      const profiles = await apiGetProfiles()
 
       const profileMap = {}
-      if (profiles) profiles.forEach(p => { profileMap[p.id] = p.username })
+      if (profiles) {
+        profiles.forEach(p => { profileMap[p.id] = p.username })
+        setProfilesList(profiles)
+      }
 
       const income = (userTrans || [])
         .filter(t => Number(t.amount) > 0 && !t.is_cancelled)
@@ -78,18 +88,28 @@ export default function FinancePanel({ session, isAdmin }) {
         amount: t.amount,
         userLabel: t.amount > 0 ? 'Konto-Aufladung' : (profileMap[t.user_id] || 'Nutzer'),
         type: 'user_trans',
-        is_cancelled: t.is_cancelled
+        is_cancelled: t.is_cancelled,
+        flowFrom: t.amount > 0 ? 'Bar (Kasse)' : `Konto ${profileMap[t.user_id] || ''}`,
+        flowTo: t.amount > 0 ? `Konto ${profileMap[t.user_id] || ''}` : (t.description || 'Ausgabe'),
+        accountName: profileMap[t.user_id] || 'Nutzer'
       }))
 
-      const expenses = (globalExp || []).map(e => ({
-        id: e.id,
-        created_at: e.created_at,
-        description: e.description,
-        amount: e.amount,
-        userLabel: profileMap[e.created_by] || 'Unbekannt',
-        type: 'global_exp',
-        is_cancelled: e.is_cancelled
-      }))
+      const expenses = (globalExp || []).map(e => {
+        const isEinnahme = Number(e.amount) > 0
+        return {
+          id: e.id,
+          created_at: e.created_at,
+          description: e.description,
+          amount: e.amount,
+          userLabel: profileMap[e.created_by] || 'Unbekannt',
+          type: 'global_exp',
+          is_cancelled: e.is_cancelled,
+          flowFrom: isEinnahme ? 'Korrektur / Bar' : 'Kasse (Barbestand)',
+          flowTo: isEinnahme ? 'Kasse (Barbestand)' : 'Ausgabe',
+          createdByName: profileMap[e.created_by] || 'Unbekannt',
+          isEinnahme
+        }
+      })
 
       const combined = [...allUserTransactions, ...expenses]
         .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
@@ -102,15 +122,14 @@ export default function FinancePanel({ session, isAdmin }) {
   }
 
   async function toggleCancel(id, type, currentStatus) {
-    if (!window.confirm(`Buchung wirklich ${currentStatus ? "reaktivieren" : "stornieren"}?`)) return
+    if (!window.confirm(`Buchung wirklich ${currentStatus ? 'reaktivieren' : 'stornieren'}?`)) return
     setLoading(true)
-    const table = type === 'user_trans' ? 'transactions' : 'global_expenses'
     try {
-      const { error } = await supabase.from(table).update({ is_cancelled: !currentStatus }).eq('id', id)
-      if (error) throw error
+      if (type === 'user_trans') await apiCancelTransaction(id)
+      else await apiCancelGlobalExpense(id)
       await fetchFinanceData()
     } catch (err) {
-      alert("Fehler: " + err.message)
+      alert('Fehler: ' + (err.data?.error || err.message))
     } finally {
       setLoading(false)
     }
@@ -123,17 +142,55 @@ export default function FinancePanel({ session, isAdmin }) {
     if (isNaN(val)) { alert("Gültige Zahl eingeben"); setLoading(false); return }
 
     try {
-      const { error } = await supabase.from('global_expenses').insert([{
+      await apiInsertGlobalExpense({
         amount: -Math.abs(val),
         description: desc || (category === 'abendessen' ? 'Einkauf Abendessen' : 'Allgemeine Ausgabe'),
-        category: category,
+        category,
         shift_date: new Date().toISOString().split('T')[0],
-        created_by: session?.user?.id,
-        is_cancelled: false
-      }])
-      if (error) throw error
-      setAmount(''); setDesc(''); await fetchFinanceData()
-    } catch (err) { alert(err.message) } finally { setLoading(false) }
+      })
+      setAmount('')
+      setDesc('')
+      await fetchFinanceData()
+    } catch (err) { alert(err.data?.error || err.message) } finally { setLoading(false) }
+  }
+
+  /** Ausgabe aus der Kasse für eine bestimmte Person: Abbuchung vom Konto der Person + vom Barbestand. */
+  async function addExpenseForPerson() {
+    if (!personExpenseUserId || !personExpenseAmount || loading) return
+    setLoading(true)
+    const val = parseFloat(personExpenseAmount.replace(',', '.'))
+    if (isNaN(val) || val <= 0) {
+      alert("Bitte einen gültigen Betrag eingeben.")
+      setLoading(false)
+      return
+    }
+    const userName = profilesList.find(p => p.id === personExpenseUserId)?.username || 'Person'
+    const expenseDesc = personExpenseDesc.trim() || 'Ausgabe für Person'
+    const fullDesc = `Ausgabe für ${userName}: ${expenseDesc}`
+
+    try {
+      await apiInsertTransaction({
+        user_id: personExpenseUserId,
+        amount: -Math.abs(val),
+        description: fullDesc,
+        category: 'ausgabe_person',
+      })
+      await apiInsertGlobalExpense({
+        amount: -Math.abs(val),
+        description: fullDesc,
+        category: 'ausgabe_person',
+        shift_date: new Date().toISOString().split('T')[0],
+      })
+
+      setPersonExpenseUserId('')
+      setPersonExpenseAmount('')
+      setPersonExpenseDesc('')
+      await fetchFinanceData()
+    } catch (err) {
+      alert(err.message)
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function adjustBalance() {
@@ -144,18 +201,16 @@ export default function FinancePanel({ session, isAdmin }) {
     const difference = target - totalPool;
     if (Math.abs(difference) < 0.01) return alert("Stand ist bereits korrekt");
 
-    setLoading(true);
+    setLoading(true)
     try {
-      await supabase.from('global_expenses').insert([{
+      await apiInsertGlobalExpense({
         amount: difference,
-        description: `Korrektur: ${window.prompt("Grund?", "Manuelle Korrektur") || "Korrektur"}`,
+        description: `Korrektur: ${window.prompt('Grund?', 'Manuelle Korrektur') || 'Korrektur'}`,
         category: 'korrektur',
         shift_date: new Date().toISOString().split('T')[0],
-        created_by: session?.user?.id,
-        is_cancelled: false
-      }]);
-      await fetchFinanceData();
-    } catch (err) { alert(err.message); } finally { setLoading(false); }
+      })
+      await fetchFinanceData()
+    } catch (err) { alert(err.data?.error || err.message) } finally { setLoading(false) }
   }
 
   const formatEuro = (val) => (Number(val) || 0).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })
@@ -174,7 +229,7 @@ export default function FinancePanel({ session, isAdmin }) {
     : recentHistory
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', paddingBottom: '30px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', paddingBottom: '30px' }}>
 
       {/* KASSENSTAND KARTEN */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
@@ -195,14 +250,14 @@ export default function FinancePanel({ session, isAdmin }) {
       {/* AUSGABE BUCHEN */}
       <div style={cardStyle}>
         <h3 style={sectionTitleStyle}>Neue Ausgabe</h3>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <div style={{ position: 'relative' }}>
             <span style={inputIconStyle}>€</span>
             <input type="text" placeholder="0,00" value={amount} onChange={e => setAmount(e.target.value)} style={inputStyleWithIcon} />
           </div>
           <input type="text" placeholder="Beschreibung (optional)" value={desc} onChange={e => setDesc(e.target.value)} style={inputStyle} />
 
-          <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+          <div style={{ display: 'flex', gap: '8px', marginTop: '2px' }}>
             <button onClick={() => addExpense('abendessen')} disabled={loading} style={primaryBtnStyle}>
               🍴 Für Essen
             </button>
@@ -217,10 +272,54 @@ export default function FinancePanel({ session, isAdmin }) {
         </div>
       </div>
 
+      {/* AUSGABE FÜR PERSON (Kasse + Konto abbuchen) */}
+      <div style={{ ...cardStyle, borderLeft: '4px solid #8b5cf6' }}>
+        <h3 style={sectionTitleStyle}>Ausgabe für Person</h3>
+        <p style={{ margin: '0 0 8px 0', fontSize: '0.8rem', color: '#6b7280' }}>
+          Geld aus der Kasse für jemanden ausgegeben (z. B. mitgebracht) – bucht vom Konto der Person und vom Barbestand ab.
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <select
+            value={personExpenseUserId}
+            onChange={e => setPersonExpenseUserId(e.target.value)}
+            style={inputStyle}
+          >
+            <option value="">Person wählen...</option>
+            {profilesList.map(p => (
+              <option key={p.id} value={p.id}>{p.username}</option>
+            ))}
+          </select>
+          <div style={{ position: 'relative' }}>
+            <span style={inputIconStyle}>€</span>
+            <input
+              type="text"
+              placeholder="Betrag 0,00"
+              value={personExpenseAmount}
+              onChange={e => setPersonExpenseAmount(e.target.value)}
+              style={inputStyleWithIcon}
+            />
+          </div>
+          <input
+            type="text"
+            placeholder="Beschreibung (z. B. Zigaretten mitgebracht)"
+            value={personExpenseDesc}
+            onChange={e => setPersonExpenseDesc(e.target.value)}
+            style={inputStyle}
+          />
+          <button
+            onClick={addExpenseForPerson}
+            disabled={loading || !personExpenseUserId || !personExpenseAmount}
+            style={{ ...primaryBtnStyle, backgroundColor: '#8b5cf6' }}
+          >
+            Ausgabe buchen (Konto + Kasse)
+          </button>
+        </div>
+      </div>
+
       {/* VERLAUF */}
       <div style={cardStyle}>
         <h3 style={sectionTitleStyle}>Transaktionsverlauf</h3>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '12px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '10px' }}>
           <input
             type="text"
             placeholder="Suche (Beschreibung, Name…)"
@@ -256,8 +355,20 @@ export default function FinancePanel({ session, isAdmin }) {
                   }}>
                     {item.description}
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>
-                    {item.userLabel} • {new Date(item.created_at).toLocaleDateString('de-DE')}
+                  <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '2px' }}>
+                    {item.type === 'user_trans' && (
+                      <span>Von: {item.flowFrom} → Zu: {item.flowTo}</span>
+                    )}
+                    {item.type === 'global_exp' && (
+                      <>
+                        <span style={{ marginRight: '6px' }}>{item.isEinnahme ? '📥 Einnahme' : '📤 Ausgabe'}: </span>
+                        <span>Von: {item.flowFrom} → Zu: {item.flowTo}</span>
+                        {item.createdByName && <span> · Veranlasst von: <strong>{item.createdByName}</strong></span>}
+                      </>
+                    )}
+                  </div>
+                  <div style={{ fontSize: '0.7rem', color: '#9ca3af', marginTop: '2px' }}>
+                    {new Date(item.created_at).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' })}
                   </div>
                 </div>
 
@@ -290,15 +401,15 @@ export default function FinancePanel({ session, isAdmin }) {
 }
 
 // STYLES
-const cardStyle = { backgroundColor: 'white', padding: '20px', borderRadius: '20px', border: '1px solid #f3f4f6', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }
-const sectionTitleStyle = { margin: '0 0 16px 0', fontSize: '1rem', fontWeight: '800', color: '#111827' }
+const cardStyle = { backgroundColor: 'white', padding: '16px', borderRadius: '16px', border: '1px solid #f3f4f6', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }
+const sectionTitleStyle = { margin: '0 0 12px 0', fontSize: '0.95rem', fontWeight: '800', color: '#111827' }
 const labelStyle = { color: '#94a3b8', fontSize: '0.65rem', textTransform: 'uppercase', fontWeight: '700', letterSpacing: '0.5px' }
-const inputStyle = { width: '100%', padding: '12px 16px', borderRadius: '12px', border: '1px solid #e5e7eb', fontSize: '0.95rem', backgroundColor: '#f9fafb', transition: 'border 0.2s' }
-const inputStyleWithIcon = { ...inputStyle, paddingLeft: '35px' }
-const inputIconStyle = { position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', fontWeight: 'bold' }
-const primaryBtnStyle = { flex: 1, padding: '14px', color: 'white', backgroundColor: '#f97316', border: 'none', borderRadius: '14px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 10px rgba(249, 115, 22, 0.2)' }
-const secondaryBtnStyle = { flex: 1, padding: '14px', color: '#374151', backgroundColor: '#f3f4f6', border: 'none', borderRadius: '14px', fontWeight: 'bold', cursor: 'pointer' }
-const notifyBtnStyle = { width: '100%', padding: '12px', backgroundColor: '#0088cc', color: 'white', border: 'none', borderRadius: '12px', fontWeight: '800', cursor: 'pointer', fontSize: '0.9rem' }
+const inputStyle = { width: '100%', padding: '8px 12px', borderRadius: '10px', border: '1px solid #e5e7eb', fontSize: '0.9rem', backgroundColor: '#f9fafb', transition: 'border 0.2s', boxSizing: 'border-box' }
+const inputStyleWithIcon = { ...inputStyle, paddingLeft: '32px' }
+const inputIconStyle = { position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', fontWeight: 'bold', fontSize: '0.9rem' }
+const primaryBtnStyle = { flex: 1, padding: '10px 12px', color: 'white', backgroundColor: '#f97316', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.9rem', boxShadow: '0 4px 10px rgba(249, 115, 22, 0.2)' }
+const secondaryBtnStyle = { flex: 1, padding: '10px 12px', color: '#374151', backgroundColor: '#f3f4f6', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.9rem' }
+const notifyBtnStyle = { width: '100%', padding: '10px', backgroundColor: '#0088cc', color: 'white', border: 'none', borderRadius: '10px', fontWeight: '800', cursor: 'pointer', fontSize: '0.85rem' }
 const textLinkBtnStyle = { background: 'none', border: 'none', color: '#6366f1', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer', marginTop: '8px', textDecoration: 'underline' }
 const listRowStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #f9fafb' }
 const iconActionBtnStyle = { background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem', padding: '4px', opacity: 0.6 }

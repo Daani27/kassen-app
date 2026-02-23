@@ -1,6 +1,13 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { supabase } from './supabaseClient'
+import {
+  apiGuestGetMeal,
+  apiGuestSearchProfiles,
+  apiGuestBreakfastOrder,
+  apiGuestBreakfastOrderGuest,
+  apiGuestRegisterAsMember,
+  apiGuestRegister,
+} from './api'
 
 const SEARCH_DEBOUNCE_MS = 400
 const MIN_SEARCH_LEN = 2
@@ -40,14 +47,14 @@ export default function GastPage() {
       setLoading(false)
       return
     }
-    supabase.rpc('get_meal_for_guest_token', { t: token })
-      .then(({ data, error: err }) => {
+    apiGuestGetMeal(token)
+      .then((data) => {
         setLoading(false)
-        if (err) {
-          setError('Link konnte nicht geladen werden.')
-          return
-        }
         setMeal(data)
+      })
+      .catch(() => {
+        setLoading(false)
+        setError('Link konnte nicht geladen werden.')
       })
   }, [token])
 
@@ -60,30 +67,14 @@ export default function GastPage() {
     }
     setSuggestionsLoading(true)
     setSuggestionsError('')
-    let data = null
-    let error = null
-    const res = await supabase.rpc('search_profiles_by_name', { name: q })
-    data = res.data
-    error = res.error
-    if (error && data === null) {
-      const fallback = await supabase
-        .from('profiles')
-        .select('id, username')
-        .ilike('username', `%${q}%`)
-        .order('username')
-        .limit(10)
-      if (!fallback.error) {
-        data = fallback.data
-        error = null
-      }
+    try {
+      const data = await apiGuestSearchProfiles(q)
+      setSuggestions(Array.isArray(data) ? data : [])
+    } catch (e) {
+      setSuggestions([])
+      setSuggestionsError(e.data?.error || e.message || 'Suche vorübergehend nicht möglich.')
     }
     setSuggestionsLoading(false)
-    if (error) {
-      setSuggestions([])
-      setSuggestionsError(error.message || 'Suche vorübergehend nicht möglich.')
-      return
-    }
-    setSuggestions(Array.isArray(data) ? data : [])
   }, [])
 
   useEffect(() => {
@@ -115,11 +106,11 @@ export default function GastPage() {
   async function saveBreakfast(normal, koerner) {
     if (selectedProfileId) {
       setBreakfastSaving(true)
-      await supabase.rpc('guest_breakfast_order', { t: token, uid: selectedProfileId, normal_count: normal, koerner_count: koerner })
+      await apiGuestBreakfastOrder(token, selectedProfileId, normal, koerner)
       setBreakfastSaving(false)
     } else if (guestName.trim()) {
       setBreakfastSaving(true)
-      await supabase.rpc('guest_breakfast_order_guest', { t: token, gname: guestName.trim(), normal_count: normal, koerner_count: koerner })
+      await apiGuestBreakfastOrderGuest(token, guestName.trim(), normal, koerner)
       setBreakfastSaving(false)
     }
   }
@@ -156,39 +147,34 @@ export default function GastPage() {
     }
 
     if (selectedProfileId) {
-      const { data, error: err } = await supabase.rpc('guest_register_as_member', {
-        t: token,
-        uid: selectedProfileId
-      })
-      setSubmitting(false)
-      if (err) {
-        setError(data?.error || err.message || 'Eintrag fehlgeschlagen.')
-        return
-      }
-      if (data?.ok) {
-        setDone(true)
-        setDoneAsMember(true)
-      } else {
-        setError(data?.error || 'Eintrag fehlgeschlagen.')
+      try {
+        const data = await apiGuestRegisterAsMember(token, selectedProfileId)
+        setSubmitting(false)
+        if (data?.ok) {
+          setDone(true)
+          setDoneAsMember(true)
+        } else {
+          setError(data?.error || 'Eintrag fehlgeschlagen.')
+        }
+      } catch (e) {
+        setSubmitting(false)
+        setError(e.data?.error || e.message || 'Eintrag fehlgeschlagen.')
       }
       return
     }
 
-    const { data, error: err } = await supabase.rpc('guest_register', {
-      t: token,
-      gname: name,
-      amt: 0
-    })
-    setSubmitting(false)
-    if (err) {
-      setError(data?.error || err.message || 'Eintrag fehlgeschlagen.')
-      return
-    }
-    if (data?.ok) {
-      setDone(true)
-      setDoneAsMember(false)
-    } else {
-      setError(data?.error || 'Eintrag fehlgeschlagen.')
+    try {
+      const data = await apiGuestRegister(token, name, 0)
+      setSubmitting(false)
+      if (data?.ok) {
+        setDone(true)
+        setDoneAsMember(false)
+      } else {
+        setError(data?.error || 'Eintrag fehlgeschlagen.')
+      }
+    } catch (e) {
+      setSubmitting(false)
+      setError(e.data?.error || e.message || 'Eintrag fehlgeschlagen.')
     }
   }
 

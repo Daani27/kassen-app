@@ -1,12 +1,20 @@
-import { useState } from 'react'
-import { supabase } from './supabaseClient'
-import { isPushSupported, isIos, isStandalone, requestPermissionAndSubscribe, unsubscribe, getLastPushError } from './pushNotifications'
+import { useState, useEffect } from 'react'
+import { apiUpdateProfileMe, apiUpdatePassword } from './api'
+import { isPushSupported, isIos, isStandalone, requestPermissionAndSubscribe, unsubscribe, getCurrentPushState, getLastPushError } from './pushNotifications'
 
 export default function UserSettings({ session, profile, onUpdate, transactions = [] }) {
   const [username, setUsername] = useState(profile?.username || '')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [pushStatus, setPushStatus] = useState(null)
+
+  useEffect(() => {
+    if (!session?.user?.id || !isPushSupported()) return
+    getCurrentPushState().then((state) => {
+      if (state !== null) setPushStatus(state)
+      else setPushStatus((prev) => (prev === 'disabled' ? 'disabled' : null))
+    })
+  }, [session?.user?.id])
 
   async function handlePushToggle() {
     if (!session?.user?.id) return
@@ -24,18 +32,26 @@ export default function UserSettings({ session, profile, onUpdate, transactions 
 
   async function updateUsername() {
     setLoading(true)
-    const { error } = await supabase.from('profiles').update({ username }).eq('id', session.user.id)
-    if (error) alert(error.message)
-    else { alert("Anzeigename aktualisiert!"); onUpdate(); }
+    try {
+      await apiUpdateProfileMe(username)
+      alert('Anzeigename aktualisiert!')
+      if (onUpdate) onUpdate()
+    } catch (e) {
+      alert(e.data?.error || e.message)
+    }
     setLoading(false)
   }
 
   async function updatePassword() {
-    if (password.length < 6) return alert("Passwort muss mind. 6 Zeichen haben.")
+    if (password.length < 6) return alert('Passwort muss mind. 6 Zeichen haben.')
     setLoading(true)
-    const { error } = await supabase.auth.updateUser({ password })
-    if (error) alert(error.message)
-    else { alert("Passwort erfolgreich geändert!"); setPassword(''); }
+    try {
+      await apiUpdatePassword(password)
+      alert('Passwort erfolgreich geändert!')
+      setPassword('')
+    } catch (e) {
+      alert(e.data?.error || e.message)
+    }
     setLoading(false)
   }
 
@@ -75,7 +91,7 @@ export default function UserSettings({ session, profile, onUpdate, transactions 
                 disabled={pushStatus === 'loading'}
                 style={pushBtnStyle}
               >
-                {pushStatus === 'loading' ? '…' : pushStatus === 'granted' ? 'Erneut aktivieren' : 'Aktivieren'}
+                {pushStatus === 'loading' ? '…' : pushStatus === 'granted' ? 'Aktualisieren' : 'Aktivieren'}
               </button>
               {(pushStatus === 'granted' || pushStatus === 'disabled') && (
                 <button onClick={handlePushDisable} disabled={pushStatus === 'loading'} style={pushBtnSecondaryStyle}>
