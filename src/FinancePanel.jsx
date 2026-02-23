@@ -69,9 +69,12 @@ export default function FinancePanel({ session, isAdmin, onUpdate }) {
   async function fetchFinanceData() {
     try {
       const today = getTodayLocal()
-      const userTrans = await apiGetTransactions(null, true)
-      const globalExp = await apiGetGlobalExpenses()
-      const profiles = await apiGetProfiles()
+      const [userTrans, globalExp, dinnerExp, profiles] = await Promise.all([
+        apiGetTransactions(null, true),
+        apiGetGlobalExpenses(),
+        apiGetGlobalExpenses({ category: 'abendessen', shift_date: today }),
+        apiGetProfiles(),
+      ])
 
       const profileMap = {}
       if (profiles) {
@@ -79,18 +82,21 @@ export default function FinancePanel({ session, isAdmin, onUpdate }) {
         setProfilesList(profiles)
       }
 
+      const globalList = Array.isArray(globalExp) ? globalExp : []
       const income = (userTrans || [])
         .filter(t => Number(t.amount) > 0 && !t.is_cancelled)
         .reduce((sum, t) => sum + (Number(t.amount) || 0), 0)
 
-      const expSum = (globalExp || [])
+      const expSum = globalList
         .filter(e => !e.is_cancelled)
         .reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
 
       setTotalPool(income + expSum)
 
-      const todayD = (globalExp || [])
-        .filter(e => (e.category === 'abendessen') && (shiftDateStr(e) === today) && !e.is_cancelled)
+      // „Essen Heute“: eigene Abfrage mit category+shift_date (Server filtert zuverlässig)
+      const dinnerList = Array.isArray(dinnerExp) ? dinnerExp : []
+      const todayD = dinnerList
+        .filter(e => !e.is_cancelled)
         .reduce((sum, e) => sum + Math.abs(Number(e.amount) || 0), 0)
       setDinnerTotal(todayD)
 
@@ -111,7 +117,7 @@ export default function FinancePanel({ session, isAdmin, onUpdate }) {
         }
       })
 
-      const expenses = (globalExp || []).map(e => {
+      const expenses = globalList.map(e => {
         const amt = Number(e.amount) || 0
         const isEinnahme = amt > 0
         return {
@@ -172,6 +178,9 @@ export default function FinancePanel({ session, isAdmin, onUpdate }) {
       })
       setAmount('')
       setDesc('')
+      if (category === 'abendessen') {
+        setDinnerTotal(prev => prev + Math.abs(val))
+      }
       await fetchFinanceData()
       if (category === 'abendessen' && onUpdate) onUpdate()
     } catch (err) { alert(err.data?.error || err.message) } finally { setLoading(false) }
