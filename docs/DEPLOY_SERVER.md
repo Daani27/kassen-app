@@ -50,7 +50,7 @@ Das Script installiert: **PostgreSQL**, **Node.js 20** (NodeSource), **Nginx**, 
 - `KASSE_NGINX_ROOT` – Nginx Document Root (Standard: `/var/www/html`)
 - `KASSE_INSTALL_HTTPS=1` – Certbot nach der Installation ausführen
 
-Danach: In der App registrieren und den ersten Nutzer in der DB zum Admin machen (siehe Abschnitt 7 bzw. Doku zum Admin).
+Danach: In der App registrieren und den ersten Nutzer zum Admin machen: `cd server && node scripts/make-admin.js deine-email@example.com` (siehe Abschnitt 7.4).
 
 ---
 
@@ -386,7 +386,7 @@ Certbot passt die Nginx-Konfiguration an und richtet SSL ein. Automatische Verl�
 - [ ] Frontend: `npm run build`, **dist/** nach `/var/www/html/...` kopiert  
 - [ ] Nginx: Site aktiv, **/api/** → Backend, **sw.js** / **index.html** ohne Cache  
 - [ ] Optional: Certbot für HTTPS  
-- [ ] Ersten Admin-Account anlegen (Registrierung in der Kassen App), danach ggf. Branding unter Admin anpassen  
+- [ ] Ersten Admin anlegen: in der App registrieren, dann `cd server && node scripts/make-admin.js deine-email@example.com` (Abschnitt 7.4), danach ggf. Branding unter Admin anpassen  
 
 ---
 
@@ -494,6 +494,19 @@ Certbot passt die Nginx-Konfiguration an und richtet SSL ein. Automatische Verl�
    Push nur, wenn die App **vom Home-Bildschirm** geöffnet wird (PWA), nicht aus dem Browser-Tab. `VAPID_SUBJECT` mit gültiger `mailto:`-E-Mail setzen.
 
 **Prüfen:** Nach Klick auf „Kasse ist offen“ zeigt die Meldung „Push an X Gerät(e) gesendet“ oder „Keine Geräte …“. Bei Fehlern: Backend-Logs `journalctl -u kasse-api -n 30` und Browser-Konsole (F12) prüfen.
+
+---
+
+## 7.4 Ersten Nutzer zum Admin machen
+
+Nach der Registrierung in der App ist der Account noch kein Admin. Auf dem Server ausführen (E-Mail = deine Registrierungs-E-Mail):
+
+```bash
+cd /var/www/kassen-app/server
+node scripts/make-admin.js deine-email@example.com
+```
+
+Danach in der App abmelden und wieder anmelden (oder Seite neu laden) – dann erscheinen Admin-Bereich und -Rechte.
 
 ---
 
