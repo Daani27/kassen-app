@@ -2,17 +2,30 @@ import webPush from 'web-push'
 import { query } from '../db.js'
 import { requireAuth } from '../auth.js'
 
-const VAPID_PUBLIC = process.env.VAPID_PUBLIC_KEY
-const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY
+// web-push erwartet URL-safe Base64 ohne "="-Padding; Keys aus .env normalisieren
+function normalizeVapidKey (v) {
+  return (v || '').replace(/\s/g, '').replace(/=/g, '')
+}
+const VAPID_PUBLIC = normalizeVapidKey(process.env.VAPID_PUBLIC_KEY)
+const VAPID_PRIVATE = normalizeVapidKey(process.env.VAPID_PRIVATE_KEY)
 const VAPID_SUBJECT = (process.env.VAPID_SUBJECT || 'mailto:noreply@example.com').trim()
 
+let vapidConfigured = false
 if (VAPID_PUBLIC && VAPID_PRIVATE) {
-  webPush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE)
+  try {
+    webPush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE)
+    vapidConfigured = true
+  } catch (e) {
+    console.warn('VAPID-Keys ungültig, Push deaktiviert:', e.message)
+  }
 }
 
 export function registerPushRoutes(app) {
   /** POST /api/push/subscribe – Subscription speichern (auth) */
   app.post('/api/push/subscribe', requireAuth, async (req, res) => {
+    if (!vapidConfigured) {
+      return res.status(503).json({ error: 'Push derzeit nicht konfiguriert (VAPID Keys fehlen oder ungültig)' })
+    }
     const { endpoint, keys } = req.body?.subscription || req.body || {}
     if (!endpoint || !keys?.p256dh || !keys?.auth) {
       return res.status(400).json({ error: 'Invalid subscription' })
@@ -38,10 +51,10 @@ export function registerPushRoutes(app) {
     if (!req.user.is_admin) {
       return res.status(403).json({ error: 'Nur Admins können Push senden' })
     }
-    if (!VAPID_PUBLIC || !VAPID_PRIVATE) {
+    if (!vapidConfigured) {
       return res.status(503).json({
-        error: 'Push nicht konfiguriert (VAPID Keys fehlen)',
-        hint: 'In server/.env: VAPID_PUBLIC_KEY und VAPID_PRIVATE_KEY setzen (npx web-push generate-vapid-keys). VAPID_SUBJECT=mailto:deine@email.de für iOS.'
+        error: 'Push nicht konfiguriert (VAPID Keys fehlen oder ungültig)',
+        hint: 'In server/.env: VAPID_PUBLIC_KEY und VAPID_PRIVATE_KEY setzen (npx web-push generate-vapid-keys). URL-safe Base64 ohne "=". VAPID_SUBJECT=mailto:deine@email.de für iOS.'
       })
     }
     let defaultTitle = 'Kasse'

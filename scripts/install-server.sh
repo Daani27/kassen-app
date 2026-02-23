@@ -128,6 +128,9 @@ if [ -z "$VAPID_PUBLIC" ] || [ -z "$VAPID_PRIVATE" ]; then
   [ -z "$VAPID_PUBLIC" ] && { echo "VAPID-Erzeugung fehlgeschlagen."; exit 1; }
   echo "    VAPID-Keys erzeugt."
 fi
+# web-push erwartet URL-safe Base64 ohne "="-Padding
+VAPID_PUBLIC=$(echo "$VAPID_PUBLIC" | tr -d '=\n\r\t ')
+VAPID_PRIVATE=$(echo "$VAPID_PRIVATE" | tr -d '=\n\r\t ')
 
 # --- 5) Backend: server/.env und npm install ---
 echo ""
@@ -173,6 +176,19 @@ systemctl daemon-reload
 systemctl enable "$SERVICE_NAME"
 systemctl start "$SERVICE_NAME"
 echo "    Service $SERVICE_NAME aktiviert und gestartet."
+
+echo "    Prüfe, ob Backend antwortet..."
+sleep 3
+HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:${API_PORT}/api/branding" 2>/dev/null || echo "000")
+if [ "$HTTP_CODE" != "200" ] && [ "$HTTP_CODE" != "401" ]; then
+  echo ""
+  echo "*** Backend antwortet nicht (HTTP $HTTP_CODE). Logs:***"
+  journalctl -u "$SERVICE_NAME" -n 40 --no-pager
+  echo ""
+  echo "Hinweis: Prüfe server/.env (DATABASE_URL, JWT_SECRET). Sonderzeichen in Passwörtern können Probleme machen."
+  exit 1
+fi
+echo "    Backend OK (HTTP $HTTP_CODE)."
 
 # --- 7) Frontend: Root-.env, Build, Kopieren ---
 echo ""

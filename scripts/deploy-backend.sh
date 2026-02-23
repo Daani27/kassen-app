@@ -10,6 +10,9 @@ PROJECT_DIR="${PROJECT_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
 SERVICE_NAME="${SERVICE_NAME:-kasse-api}"
 
 cd "$PROJECT_DIR"
+REPO_DIR=$(pwd)
+# Bei Ausführung als root (z. B. auf dem Server) sonst "dubious ownership"
+git config --global --add safe.directory "$REPO_DIR" 2>/dev/null || true
 echo ">>> Git pull in $PROJECT_DIR"
 git pull
 
