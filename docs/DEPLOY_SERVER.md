@@ -402,6 +402,41 @@ Certbot passt die Nginx-Konfiguration an und richtet SSL ein. Automatische Verl�
 
 ---
 
+## 7.2 Fehler: 404 Not Found (nach Login oder API-Aufruf)
+
+**Ursache:** Die Anfrage an `/api/...` landet bei Nginx, aber **dieselbe Nginx-Server-Block-Konfiguration**, die die Seite ausliefert, hat **keinen** `location /api/` mit `proxy_pass` – oder die App ruft eine andere URL auf.
+
+**Typisch nach Änderung von VITE_API_URL und Neu-Build:**
+
+1. **VITE_API_URL muss zur Aufruf-URL passen**
+   - App wird unter **https://kasse.example.de** geöffnet und die API läuft auf **demselben** Server → in der **Root-.env** beim Build am besten **leer** lassen oder `VITE_API_URL=https://kasse.example.de` (ohne Slash am Ende). Dann gehen die Requests an `https://kasse.example.de/api/...`.
+   - Wenn die App unter **https://kasse.example.de/kasse/** liegt (Unterordner): API liegt trotzdem unter **https://kasse.example.de/api/** (nicht unter `/kasse/api/`). Also `VITE_API_URL=https://kasse.example.de` oder leer (dann nutzt die App relative Pfade; der Browser löst sie zur aktuellen Origin auf, also wieder `https://kasse.example.de/api/...`).
+
+2. **Nginx: Der richtige server-Block muss /api weiterleiten**
+   - Die **gleiche** `server_name` (oder der `default_server`), unter der du die App im Browser öffnest, braucht den Block:
+     ```nginx
+     location /api/ {
+         proxy_pass http://127.0.0.1:3001/api/;
+         proxy_http_version 1.1;
+         proxy_set_header Host $host;
+         proxy_set_header X-Real-IP $remote_addr;
+         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+         proxy_set_header X-Forwarded-Proto $scheme;
+     }
+     ```
+   - Wenn du die App per **IP** aufrufst (z. B. `http://192.168.1.10/`), muss ausgerechnet **dieser** Server-Block (z. B. `default_server` oder `server_name` mit dieser IP) die `/api/`-Weiterleitung haben. Sonst liefert Nginx für `/api/auth/login` nur die statische 404-Seite.
+
+**Prüfen:**
+
+- Im Browser (DevTools → Netzwerk): Wohin geht der Login-Request? (URL anzeigen.)
+- Auf dem Server: Welche Site antwortet?  
+  `sudo nginx -T | grep -A2 "server_name"`  
+  und in der passenden `server { ... }`-Datei prüfen, ob `location /api/` mit `proxy_pass` existiert.
+
+**Kurz:** 404 = Nginx hat keine Weiterleitung für diesen Pfad. Entweder `VITE_API_URL` so setzen, dass die App genau die Domain trifft, unter der Nginx `/api/` an das Backend weiterleitet – oder in genau dem Nginx-Server-Block, der für deine Aufruf-URL zuständig ist, `location /api/ { proxy_pass ... }` ergänzen, dann `sudo nginx -t` und `sudo systemctl reload nginx`.
+
+---
+
 ## 8. Updates deployen
 
 1. **Code aktualisieren** (z. B. `git pull` im Projektordner).
@@ -420,6 +455,12 @@ Certbot passt die Nginx-Konfiguration an und richtet SSL ein. Automatische Verl�
      sudo chown -R www-data:www-data /var/www/html
      ```
 4. **Datenbank:** Nur bei neuen Migrationen (neue Tabellen/Spalten) die entsprechenden SQL-Skripte ausführen (z. B. aus `server/schema.sql` oder separaten Migrationsdateien).
+
+**Frontend in einem Befehl (auf dem Server):** Pull, Build und Kopieren mit Berechtigungen erledigt das Skript `scripts/deploy-frontend.sh`. Auf dem Server ausführen:
+   ```bash
+   cd /var/www/kassen-app && bash scripts/deploy-frontend.sh
+   ```
+   Zielordner ist standardmäßig `/var/www/html/kasse`; mit `TARGET_DIR=/var/www/html sudo -E bash scripts/deploy-frontend.sh` änderbar.
 
 ---
 
