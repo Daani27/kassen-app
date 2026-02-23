@@ -16,24 +16,29 @@ import pg from 'pg'
 
 const { Pool } = pg
 
-const SUPABASE_URL = process.env.SUPABASE_DATABASE_URL
 const TARGET_URL = process.env.DATABASE_URL
+const SUPABASE_URL = process.env.SUPABASE_DATABASE_URL
+const supabasePasswordOnly = process.env.SUPABASE_DB_PASSWORD
+const supabaseHost = process.env.SUPABASE_DB_HOST
 
-if (!SUPABASE_URL || !TARGET_URL) {
+const hasFullUrl = !!SUPABASE_URL
+const hasHostAndPassword = !!(supabaseHost && supabasePasswordOnly)
+const resolvedSupabaseUrl = hasHostAndPassword
+  ? `postgresql://postgres:${encodeURIComponent(String(supabasePasswordOnly).trim())}@${String(supabaseHost).trim().replace(/^@/, '')}:5432/postgres`
+  : SUPABASE_URL
+
+if (!TARGET_URL) {
+  console.error('Fehler: DATABASE_URL muss in server/.env gesetzt sein (Zieldatenbank).')
+  process.exit(1)
+}
+if (!resolvedSupabaseUrl) {
   console.error(
-    'Fehler: SUPABASE_DATABASE_URL und DATABASE_URL müssen in .env gesetzt sein.\n' +
-    'Supabase: Project Settings → Database → Connection string (URI, z. B. Session mode oder Direct).'
+    'Fehler: Supabase-Zugang fehlt. In server/.env eine der Varianten setzen:\n' +
+    '  A) SUPABASE_DATABASE_URL=postgresql://postgres:PASSWORT@db.xxxx.supabase.co:5432/postgres\n' +
+    '  B) SUPABASE_DB_HOST=db.xxxx.supabase.co  und  SUPABASE_DB_PASSWORD=dein_passwort'
   )
   process.exit(1)
 }
-
-// Optional: Passwort separat setzen (wird URL-encodiert), dann Host angeben (ohne Passwort in URL)
-const supabasePasswordOnly = process.env.SUPABASE_DB_PASSWORD
-const supabaseHost = process.env.SUPABASE_DB_HOST
-const resolvedSupabaseUrl =
-  supabasePasswordOnly && supabaseHost
-    ? `postgresql://postgres:${encodeURIComponent(supabasePasswordOnly.trim())}@${supabaseHost.replace(/^@/, '')}:5432/postgres`
-    : SUPABASE_URL
 
 const supabasePool = new Pool({ connectionString: resolvedSupabaseUrl, max: 2 })
 const targetPool = new Pool({ connectionString: TARGET_URL, max: 2 })
