@@ -5,9 +5,12 @@
 
 const BASE = import.meta.env.VITE_API_URL || ''
 
+// localStorage damit Login beim kompletten Schließen der App (PWA/Tab) erhalten bleibt
+const storage = typeof localStorage !== 'undefined' ? localStorage : (typeof sessionStorage !== 'undefined' ? sessionStorage : null)
+
 function getToken() {
   try {
-    return window.__kasse_token || sessionStorage.getItem('kasse_token') || null
+    return window.__kasse_token || (storage && storage.getItem('kasse_token')) || null
   } catch {
     return null
   }
@@ -16,10 +19,10 @@ function getToken() {
 function setToken(token) {
   try {
     if (token) {
-      sessionStorage.setItem('kasse_token', token)
+      if (storage) storage.setItem('kasse_token', token)
       window.__kasse_token = token
     } else {
-      sessionStorage.removeItem('kasse_token')
+      if (storage) storage.removeItem('kasse_token')
       delete window.__kasse_token
     }
   } catch (_) {}
@@ -27,7 +30,7 @@ function setToken(token) {
 
 export function getStoredSession() {
   try {
-    const raw = sessionStorage.getItem('kasse_session')
+    const raw = storage && storage.getItem('kasse_session')
     if (!raw) return null
     return JSON.parse(raw)
   } catch {
@@ -38,10 +41,10 @@ export function getStoredSession() {
 export function setStoredSession(session) {
   try {
     if (session) {
-      sessionStorage.setItem('kasse_session', JSON.stringify(session))
+      if (storage) storage.setItem('kasse_session', JSON.stringify(session))
       setToken(session.token)
     } else {
-      sessionStorage.removeItem('kasse_session')
+      if (storage) storage.removeItem('kasse_session')
       setToken(null)
     }
   } catch (_) {}

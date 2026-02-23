@@ -127,7 +127,8 @@ if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
     }).catch(() => {})
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (document.getElementById('pwa-update-banner')) window.location.reload()
+      // Immer neu laden, sobald ein neuer Service Worker übernimmt – dann läuft die neue App-Version
+      window.location.reload()
     })
   })
 }

@@ -53,9 +53,22 @@ export default function FinancePanel({ session, isAdmin, onUpdate }) {
     )
   }
 
+  /** Heute als YYYY-MM-DD in lokaler Zeitzone (für „Essen Heute“ und Abgleich mit shift_date). */
+  function getTodayLocal() {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  }
+
+  /** shift_date aus API normalisieren (Postgres kann Date oder String liefern). */
+  function shiftDateStr(e) {
+    if (e.shift_date == null) return ''
+    const s = typeof e.shift_date === 'string' ? e.shift_date : (e.shift_date instanceof Date ? e.shift_date.toISOString().split('T')[0] : String(e.shift_date))
+    return s.slice(0, 10)
+  }
+
   async function fetchFinanceData() {
     try {
-      const today = new Date().toISOString().split('T')[0]
+      const today = getTodayLocal()
       const userTrans = await apiGetTransactions(null, true)
       const globalExp = await apiGetGlobalExpenses()
       const profiles = await apiGetProfiles()
@@ -77,7 +90,7 @@ export default function FinancePanel({ session, isAdmin, onUpdate }) {
       setTotalPool(income + expSum)
 
       const todayD = (globalExp || [])
-        .filter(e => e.category === 'abendessen' && e.shift_date === today && !e.is_cancelled)
+        .filter(e => (e.category === 'abendessen') && (shiftDateStr(e) === today) && !e.is_cancelled)
         .reduce((sum, e) => sum + Math.abs(Number(e.amount) || 0), 0)
       setDinnerTotal(todayD)
 
@@ -155,7 +168,7 @@ export default function FinancePanel({ session, isAdmin, onUpdate }) {
         amount: -Math.abs(val),
         description: desc || (category === 'abendessen' ? 'Einkauf Abendessen' : 'Allgemeine Ausgabe'),
         category,
-        shift_date: new Date().toISOString().split('T')[0],
+        shift_date: getTodayLocal(),
       })
       setAmount('')
       setDesc('')
