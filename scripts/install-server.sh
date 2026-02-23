@@ -122,13 +122,17 @@ fi
 # --- 4) VAPID-Keys erzeugen (wenn nicht gesetzt) ---
 if [ -z "$VAPID_PUBLIC" ] || [ -z "$VAPID_PRIVATE" ]; then
   echo ">>> VAPID-Keys für Web-Push erzeugen..."
-  VAPID_OUTPUT=$(cd "$PROJECT_DIR" && npx --yes web-push generate-vapid-keys 2>/dev/null)
-  VAPID_PUBLIC=$(echo "$VAPID_OUTPUT" | grep "Public Key" | sed 's/.*: //')
-  VAPID_PRIVATE=$(echo "$VAPID_OUTPUT" | grep "Private Key" | sed 's/.*: //')
-  [ -z "$VAPID_PUBLIC" ] && { echo "VAPID-Erzeugung fehlgeschlagen."; exit 1; }
+  VAPID_JSON=$(cd "$PROJECT_DIR" && npx --yes web-push generate-vapid-keys --json 2>/dev/null)
+  if [ -z "$VAPID_JSON" ]; then
+    echo "VAPID-Erzeugung fehlgeschlagen (npx web-push generate-vapid-keys --json)."
+    exit 1
+  fi
+  VAPID_PUBLIC=$(node -e "const j=JSON.parse(process.argv[1]); console.log(j.publicKey||'')" "$VAPID_JSON")
+  VAPID_PRIVATE=$(node -e "const j=JSON.parse(process.argv[1]); console.log(j.privateKey||'')" "$VAPID_JSON")
+  [ -z "$VAPID_PUBLIC" ] && { echo "VAPID-Erzeugung fehlgeschlagen (Keys leer)."; exit 1; }
   echo "    VAPID-Keys erzeugt."
 fi
-# web-push erwartet URL-safe Base64 ohne "="-Padding
+# web-push erwartet URL-safe Base64 ohne "="-Padding (bei manuell gesetzten Keys normalisieren)
 VAPID_PUBLIC=$(echo "$VAPID_PUBLIC" | tr -d '=\n\r\t ')
 VAPID_PRIVATE=$(echo "$VAPID_PRIVATE" | tr -d '=\n\r\t ')
 

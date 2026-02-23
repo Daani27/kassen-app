@@ -1,6 +1,6 @@
 {
   "name": "kassen-app",
-  "version": "3.0.5",
+  "version": "1.0.0",
   "type": "module",
   "description": "Kassen App – PWA für Kasse, Mahlzeiten und Push",
   "scripts": {

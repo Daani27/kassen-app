@@ -37,7 +37,7 @@ Auf einem **frischen Debian-Server** (z. B. Debian 12/13) kannst du alles in e
 2. Als root ausführen: `sudo bash scripts/install-server.sh`
 3. Wenn nötig, die Abfragen beantworten: **Domain**, **DB-Passwort**, **JWT-Secret** (mind. 32 Zeichen). VAPID-Keys werden bei Bedarf automatisch erzeugt.
 
-Das Script installiert: **PostgreSQL**, **Node.js 20** (NodeSource), **Nginx**, **Certbot**, legt Datenbank und User an, führt das Schema aus, richtet **server/.env** und den **systemd**-Service ein, baut das Frontend und konfiguriert Nginx. Optional HTTPS mit Let’s Encrypt: vorher `export KASSE_INSTALL_HTTPS=1` setzen.
+Das Script installiert: **PostgreSQL**, **Node.js 20** (NodeSource), **Nginx**, **Certbot**, legt Datenbank und User an, führt das Schema aus, richtet **server/.env** und den **systemd**-Service ein, baut das Frontend und konfiguriert Nginx. **Push-Benachrichtigungen** werden mit automatisch erzeugten VAPID-Keys (URL-safe, ohne Padding) in Backend und Frontend-Build eingetragen. Optional HTTPS mit Let’s Encrypt: vorher `export KASSE_INSTALL_HTTPS=1` setzen.
 
 **Umgebungsvariablen** (optional, sonst interaktiv):
 
@@ -467,7 +467,9 @@ Certbot passt die Nginx-Konfiguration an und richtet SSL ein. Automatische Verl�
 
 ## 7.3 Push-Benachrichtigungen funktionieren nicht
 
-**Checkliste:**
+**Hinweis:** Bei **automatischer Installation** (Abschnitt 0) werden VAPID-Keys mit `npx web-push generate-vapid-keys --json` erzeugt und in **server/.env** sowie für den Frontend-Build (VITE_VAPID_PUBLIC_KEY) geschrieben – Push ist dann ohne Zusatzschritte nutzbar.
+
+**Checkliste (manueller Deploy / Fehlersuche):**
 
 1. **VAPID-Keys gesetzt (Backend)**  
    In **server/.env** müssen stehen:
@@ -475,7 +477,7 @@ Certbot passt die Nginx-Konfiguration an und richtet SSL ein. Automatische Verl�
    - `VAPID_PRIVATE_KEY=` (privater Key, nur im Backend)
    - Optional für iOS: `VAPID_SUBJECT=mailto:deine-email@domain.de` (gültige E-Mail mit Domain)
 
-   Keys erzeugen: `npx web-push generate-vapid-keys` (nur einmal, dasselbe Paar überall verwenden).
+   Keys erzeugen: `npx web-push generate-vapid-keys --json` (JSON-Ausgabe) oder `npx web-push generate-vapid-keys`. Die Bibliothek erwartet **URL-safe Base64 ohne "="-Padding**; beim manuellen Eintragen Zeilenumbrüche und `=` am Ende weglassen.
 
 2. **Frontend-Build (.env)**  
    Im **Projektroot** vor dem Build:

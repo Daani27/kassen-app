@@ -13,8 +13,10 @@ cd "$PROJECT_DIR"
 REPO_DIR=$(pwd)
 # Bei Ausführung als root (z. B. auf dem Server) sonst "dubious ownership"
 git config --global --add safe.directory "$REPO_DIR" 2>/dev/null || true
-echo ">>> Git pull in $PROJECT_DIR"
+# Lokale Änderungen verwerfen, damit pull nicht mit "would be overwritten" abbricht
+git reset --hard HEAD
 git pull
+echo ">>> Git pull in $PROJECT_DIR – fertig"
 
 echo ">>> npm install im server/"
 cd server
