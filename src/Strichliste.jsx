@@ -116,7 +116,7 @@ export default function Strichliste({ session, onUpdate, isAdmin }) {
                   backgroundColor: isExternal ? '#3b82f6' : '#111827',
                   color: '#fff'
                 }}>
-                  {isBooking ? '…' : `${Math.abs(p.price).toFixed(2)} €`}
+                  {isBooking ? '…' : `${(Math.abs(Number(p.price)) || 0).toFixed(2)} €`}
                 </span>
               </button>
             )

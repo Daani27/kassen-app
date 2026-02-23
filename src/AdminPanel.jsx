@@ -373,7 +373,7 @@ export default function AdminPanel({ session }) {
                         style={{ ...brandingInputStyle, width: '70px', padding: '6px 8px', fontSize: '0.9rem' }}
                       />
                     ) : (
-                      `${Number(p.price).toFixed(2)} €`
+                      `${(Number(p.price) || 0).toFixed(2)} €`
                     )}
                   </td>
                   <td style={{ ...tdStyle, textAlign: 'right' }}>
@@ -505,8 +505,8 @@ export default function AdminPanel({ session }) {
               {users.map(u => (
                 <tr key={u.id} style={{ borderBottom: '1px solid #f9fafb' }}>
                   <td style={tdStyle}>{u.username || 'Unbekannt'}</td>
-                  <td style={{ ...tdStyle, color: u.balance < 0 ? '#ef4444' : '#10b981', fontWeight: 'bold' }}>
-                    {u.balance.toFixed(2)} €
+                  <td style={{ ...tdStyle, color: (Number(u.balance) || 0) < 0 ? '#ef4444' : '#10b981', fontWeight: 'bold' }}>
+                    {(Number(u.balance) || 0).toFixed(2)} €
                   </td>
                   <td style={{ ...tdStyle, textAlign: 'right' }}>
                     <button onClick={() => handlePayment(u.id, u.username)} style={miniBtnStyle}>
@@ -524,7 +524,10 @@ export default function AdminPanel({ session }) {
       <div style={cardStyle}>
         <h3 style={{ marginTop: 0, marginBottom: '16px', fontSize: '1.1rem' }}>📜 Letzte Buchungen</h3>
         <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-          {transactions.map(t => (
+          {transactions.map(t => {
+            const amt = Number(t.amount) || 0
+            const dateStr = t.created_at ? (() => { try { const d = new Date(t.created_at); return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('de-DE') } catch { return '—' } })() : '—'
+            return (
             <div key={t.id} style={{ 
               display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
               padding: '12px 0', borderBottom: '1px solid #f9fafb',
@@ -533,23 +536,23 @@ export default function AdminPanel({ session }) {
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{t.user_username || 'System'}</div>
                 <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>
-                  {new Date(t.created_at).toLocaleDateString('de-DE')} • {t.description}
+                  {dateStr} • {t.description ?? '—'}
                 </div>
               </div>
               <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <span style={{ 
                   fontWeight: 'bold', 
-                  color: t.is_cancelled ? '#9ca3af' : (t.amount >= 0 ? '#10b981' : '#ef4444'),
+                  color: t.is_cancelled ? '#9ca3af' : (amt >= 0 ? '#10b981' : '#ef4444'),
                   fontSize: '0.9rem'
                 }}>
-                  {t.amount.toFixed(2)} €
+                  {amt.toFixed(2)} €
                 </span>
                 <button onClick={() => toggleCancelTransaction(t.id, t.is_cancelled)} style={iconBtnStyle}>
                   {t.is_cancelled ? '🔄' : '🚫'}
                 </button>
               </div>
             </div>
-          ))}
+          )})}
         </div>
       </div>
     </div>
